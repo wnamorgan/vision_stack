@@ -1,0 +1,3657 @@
+#LyX 2.4 created this file. For more info see https://www.lyx.org/
+\lyxformat 620
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\begin_preamble
+\usepackage{bm}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{placeins}
+\usepackage{afterpage}
+\renewcommand{\baselinestretch}{1.5}
+\usepackage[a4paper,
+            bindingoffset=0.2in,
+            left=1in,
+            right=1in,
+            top=1in,
+            bottom=1in,
+            footskip=.25in]{geometry} 
+\DeclareMathOperator{\hr}{hr}
+\DeclareMathOperator{\m}{m}
+\DeclareMathOperator{\g}{g}
+\DeclareMathOperator{\Hz}{Hz}
+\DeclareMathOperator{\arcsec}{arcsec}
+\DeclareMathOperator{\atan2}{atan2}
+\usepackage[colorlinks=true,linkcolor=blue,urlcolor=black,bookmarksopen=true,pdfstartview=FitH]{hyperref}
+\usepackage[open,openlevel=1]{bookmark}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\end_preamble
+\use_default_options true
+\maintain_unincluded_children no
+\language american
+\language_package default
+\inputencoding utf8
+\fontencoding auto
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_roman_osf false
+\font_sans_osf false
+\font_typewriter_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\float_placement class
+\float_alignment class
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_formatted_ref 0
+\use_minted 0
+\use_lineno 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\spellchecker_ignore american Pixy
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tablestyle default
+\tracking_changes false
+\output_changes false
+\change_bars false
+\postpone_fragile_content true
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\docbook_table_output 0
+\docbook_mathml_prefix 1
+\end_header
+
+\begin_body
+
+\begin_layout Section
+Introduction
+\end_layout
+
+\begin_layout Subsection
+Coordinate Frames
+\end_layout
+
+\begin_layout Standard
+The frames of interest are:
+ (e) Terrestrial
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+footnote{PX4/Ardupilot use a NED frame fixed to the earth's topological surface (ground,
+ not ellipsoid) at takeoff}
+\end_layout
+
+\end_inset
+
+;
+ (p) platform
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+footnote{PX4/Ardupilot is a front-right down (FRD) frame}
+\end_layout
+
+\end_inset
+
+;
+ (g) gimbal base frame;
+ (m) mount (inner gimbal) frame;
+ (c) camera frame.
+ 
+\end_layout
+
+\begin_layout Section
+Gimbal
+\end_layout
+
+\begin_layout Standard
+A gimbal is useful to keep the target centered in the camera during flight,
+ which is particularly important with platform (e.g.,
+ hexacopter) ego motion.
+ Ideally,
+ a gimbal will accept rate commands,
+ which can be used to close a track loop;
+ position control is also possible,
+ but will have larger tracking errors.
+\end_layout
+
+\begin_layout Subsection
+
+\nospellcheck on
+Gremsy
+\nospellcheck default
+ 
+\nospellcheck on
+Pixy
+\nospellcheck default
+ U Gimbal
+\end_layout
+
+\begin_layout Standard
+
+\nospellcheck on
+Gremsy
+\nospellcheck default
+ gimbals,
+ such as the Pixy U,
+ provide position and rate control,
+ while rejecting base motion,
+ i.e.,
+ the gimbal tracks its commands relative to inertial space,
+ rather than the mechanical encoder joints.
+ Encoder data is also provided to the user,
+ but is not time stamped.
+ The gimbal has an internal IMU for rate stabilization,
+ but this also makes the system prone to gyro drift without external track loop closure.
+ Gyro errors (e.g.,
+ bias) will result in the gimbal drifting over time.
+\end_layout
+
+\begin_layout Subsection
+Gimbal to Camera Frame Calibration
+\end_layout
+
+\begin_layout Standard
+Here a process will be described that allows one to calibrate the DCM from gimbal base (g) to camera (c).
+ It is assumed a gyro is mounted with the camera and has already been calibrated so that the angular rate measurements can be expressed in the camera frame.
+ 
+\end_layout
+
+\begin_layout Subsubsection
+Gimbal to Mount DCM
+\end_layout
+
+\begin_layout Standard
+Encoders measure relative rotation about gimbal joint axes and define the kinematic relationships between g and m.
+ For yaw and roll,
+ the encoder zero values serve as arbitrary but sufficient coordinate origins,
+ since these joints provide no intrinsic angular datum beyond relative motion.
+ A constant pitch offset,
+ however,
+ enters directly into the gimbal kinematic chain and modifies the frame-to-frame transform,
+ and therefore must be explicitly modeled.
+ All interfaces on either side of the gimbal are defined consistently with respect to the encoder-zero convention,
+ resulting in a minimal and well-posed representation.
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_g^m(
+\backslash
+psi_{m,g},
+\backslash
+theta_{m,g},
+\backslash
+phi_{m,g}) = 
+\backslash
+bm{R}_x(
+\backslash
+phi_{m,g})
+\backslash
+bm{R}_y(
+\backslash
+theta_{m,g})
+\backslash
+bm{R}_z(
+\backslash
+psi_{m,g})
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+The encoder produces the following measurement
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{z}_g = 
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{bmatrix} z_{
+\backslash
+psi} 
+\backslash
+
+\backslash
+ z_{
+\backslash
+theta} 
+\backslash
+
+\backslash
+ z_{
+\backslash
+phi} 
+\backslash
+end{bmatrix} = 
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{bmatrix} 
+\backslash
+psi_{m,g} 
+\backslash
+
+\backslash
+ 
+\backslash
+theta_{m,g} + 
+\backslash
+theta_0 
+\backslash
+
+\backslash
+ 
+\backslash
+phi_{m,g} 
+\backslash
+end{bmatrix} 
+\backslash
+hspace{4 pt} ,
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+where 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+theta_0
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ represents encoder bias relative to zero pitch.
+ The DCM from g to m can be expressed as follows.
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_g^m(
+\backslash
+bm{z}_g,
+\backslash
+theta_0) = 
+\backslash
+bm{R}_x(z_{
+\backslash
+phi})
+\backslash
+bm{R}_y(z_{
+\backslash
+theta}-
+\backslash
+theta_0)
+\backslash
+bm{R}_z(z_{
+\backslash
+psi})
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Mount to Camera DCM
+\end_layout
+
+\begin_layout Standard
+The rigid alignment between the mount frame and the camera frame is modeled
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+footnote{SO(3):
+ S = Special → determinant = +1 (no reflection);
+ O = Orthogonal → 
+\backslash
+(
+\backslash
+bm{R}^T
+\backslash
+bm{R}=
+\backslash
+bm{I}
+\backslash
+);
+ (3) = acts on 3D space}
+\end_layout
+
+\end_inset
+
+ as a fixed rotation 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{R}_m^c 
+\backslash
+in SO(3)
+\backslash
+)
+\end_layout
+
+\end_inset
+
+.
+ This transform captures all assembly-related orientation differences between the gimbal mount and the camera,
+ independent of the gimbal joint angles.
+ No assumptions are made about axis alignment or rotation sequence;
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{R}_m^c
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ is treated as a constant rotation (3 parameter) to be identified as part of the calibration.
+ The parameter vector to be estimated is the axis-angle vector 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{
+\backslash
+theta}_{m,c}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ corresponding to 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{R}_m^c
+\backslash
+)
+\end_layout
+
+\end_inset
+
+.
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{split}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+theta_{m,c} &= ||
+\backslash
+bm{
+\backslash
+theta}_{m,c}|| 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{u}_{m,c} &= 
+\backslash
+theta^{-1}_{m,c} 
+\backslash
+bm{
+\backslash
+theta}_{m,c} 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_m^c   &= 
+\backslash
+bm{I} + 
+\backslash
+sin 
+\backslash
+theta_{m,c} 
+\backslash
+tilde{
+\backslash
+bm{u}}_{m,c} + (1-
+\backslash
+cos 
+\backslash
+theta_{m,c})
+\backslash
+tilde{
+\backslash
+bm{u}}_{m,c}
+\backslash
+tilde{
+\backslash
+bm{u}}_{m,c}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{split}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Gyro Accumulation
+\end_layout
+
+\begin_layout Standard
+During motion,
+ the camera gyro provides the angular velocity vector 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{
+\backslash
+omega}_c
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ expressed in the camera frame.
+ Let 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(T
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ denote the gyro sample period,
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(t_j
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ a reference time,
+ and 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(c_j
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ the camera frame at that time.
+ At each sample,
+ the relative rotation from camera frame 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(c_{j-1}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ to 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(c_{j}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ is propagated using an incremental axis–angle rotation derived from the gyro measurement.
+ The incremental rotation vector (axis and angle) over interval 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(T
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ is given by
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{
+\backslash
+theta}_{c_j}  = 
+\backslash
+bm{
+\backslash
+omega}_{c_j} T
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+ The angle and axis of rotation have the expected definitions.
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{split}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+theta_{c_j} &= ||
+\backslash
+bm{
+\backslash
+theta}_{c_j} || 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{u}_{c_j} &= 
+\backslash
+theta_{c_j}^{-1} 
+\backslash
+bm{
+\backslash
+theta}_{c_j}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{split}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+The DCM representing the rotation from frame 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(c_{j-1}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ to 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(c_j
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ is then computed using 
+\nospellcheck on
+Rodrigues
+\nospellcheck default
+’ formula.
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_{c_{j-1}}^{c_{j}}   = 
+\backslash
+bm{I} + 
+\backslash
+sin 
+\backslash
+theta_{c_j} 
+\backslash
+tilde{
+\backslash
+bm{u}}_{c_j} + (1-
+\backslash
+cos 
+\backslash
+theta_{c_j})
+\backslash
+tilde{
+\backslash
+bm{u}}_{c_j}
+\backslash
+tilde{
+\backslash
+bm{u}}_{c_j}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+The DCM from the camera frame at 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(t_j
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ to the camera frame at 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(t_i
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ is obtained by sequential composition.
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_{c_i}^{c_j} = 
+\backslash
+bm{R}_{c_{j-1}}^{c_{j}}
+\backslash
+bm{R}_{c_{i}}^{c_{j-1}} 
+\backslash
+label{cam gyro prop}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Gimbal to Camera Calibration 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+label{sec:
+ Gimbal to Cam Cal}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A calibration is to be performed wherein the gimbal frame (g) is fixed,
+ and hence the gyro senses the gimbal rotations,
+ which are also measured by the encoders.
+ The goal is to use encoder measurements and camera inertial rate measurements (measured by onboard gyro) to estimate the encoder pitch offset 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+theta_0
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ and the mount to camera Euler rotation 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{
+\backslash
+theta}_{m,c}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+.
+ The encoder values can be used to construct the DCM from g to c.
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_g^{
+\backslash
+hat{c}}(t_k)=
+\backslash
+bm{R}_m^c(
+\backslash
+bm{
+\backslash
+theta}_{m,c})
+\backslash
+bm{R}_g^m(
+\backslash
+bm{z}_g(t_k),
+\backslash
+theta_0) 
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+Alternatively the gyro can be used to construct the DCM from g to c.
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_g^{
+\backslash
+check{c}}(t_k)=
+\backslash
+bm{R}_{c_i}^{c_k}
+\backslash
+bm{R}_m^c(
+\backslash
+bm{
+\backslash
+theta}_{m,c})
+\backslash
+bm{R}_g^m(
+\backslash
+bm{z}_g(t_i),
+\backslash
+theta_0)
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+ These matrices 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{R}_g^{
+\backslash
+hat{c}}(t_k)
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ and 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{R}_g^{
+\backslash
+check{c}}(t_k)
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ satisfy the following.
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_{
+\backslash
+hat{c}}^{
+\backslash
+check{c}}=
+\backslash
+bm{R}_g^{
+\backslash
+check{c}}(t_k)
+\backslash
+bm{R}_{
+\backslash
+hat{c}}^g(t_k)=
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_{c_i}^{c_k}
+\backslash
+bm{R}_m^c(
+\backslash
+bm{
+\backslash
+theta}_{m,c})
+\backslash
+bm{R}_g^m(
+\backslash
+bm{z}_g(t_i),
+\backslash
+theta_0)
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_m^g(
+\backslash
+bm{z}_g(t_k),
+\backslash
+theta_0) 
+\backslash
+bm{R}_c^m(
+\backslash
+bm{
+\backslash
+theta}_{m,c})
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+The parameters (
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{
+\backslash
+theta}_{m,c},
+\backslash
+theta_0
+\backslash
+)
+\end_layout
+
+\end_inset
+
+) are chosen such that 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{R}_{
+\backslash
+hat{c}}^{
+\backslash
+check{c}}=
+\backslash
+bm{I}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+.
+ For a given set of parameters,
+ the extent to which the identity is not satisfied represents a rotation 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(SO[3]
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ that can be expressed using Rodrigues' formula.
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_{
+\backslash
+hat{c}}^{
+\backslash
+check{c}} = 
+\backslash
+bm{I} + 
+\backslash
+sin 
+\backslash
+theta_e 
+\backslash
+tilde{
+\backslash
+bm{u}}_e + (1-
+\backslash
+cos 
+\backslash
+theta_e)
+\backslash
+tilde{
+\backslash
+bm{u}}_e
+\backslash
+tilde{
+\backslash
+bm{u}}_e
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+The rotation vector 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{
+\backslash
+theta}_e=
+\backslash
+theta_e
+\backslash
+bm{u}_e
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ can be extracted from the DCM 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{R}_{
+\backslash
+hat{c}}^{
+\backslash
+check{c}}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ using the method developed in Appendix 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+ref{sec:
+ Rodrigues Form}
+\end_layout
+
+\end_inset
+
+.
+ The problem is ready for a least-squares solution,
+ as discussed in Appendix 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+ref{sec:
+ Least squares}
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Section
+Platform to Gimbal Calibration
+\end_layout
+
+\begin_layout Standard
+The objective is to determine the platform to camera transformation from observations of the platform IMU,
+ the gimbal encoders and the camera IMU.
+ The rigid alignment between the platform frame and the gimbal frame is as a fixed rotation 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{R}_p^g 
+\backslash
+in SO(3)
+\backslash
+)
+\end_layout
+
+\end_inset
+
+,
+ which has an equivalent axis-angle parameter vector 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{
+\backslash
+theta}_{p,g} 
+\backslash
+in 
+\backslash
+mathbb{R}^{3}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+.
+ The DCM from the platform frame at 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(t_j
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ to the platform frame at 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(t_i
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ is obtained by sequential composition,
+ as was done with the camera frame (
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+ref{cam gyro prop}
+\end_layout
+
+\end_inset
+
+).
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_{p_i}^{p_j} = 
+\backslash
+bm{R}_{p_{j-1}}^{p_{j}}
+\backslash
+bm{R}_{p_{i}}^{p_{j-1}} 
+\backslash
+label{platform gyro prop}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+The DCM 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{R}_{p_{j-1}}^{p_{j}}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ is computed using platform gyro measurements in exactly the same way as already introduced for the camera gyro.
+ In general,
+ the DCM from p to c at time 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(t_k
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ can be found by knowledge of the parameters 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{x}_{
+\backslash
+theta} = (
+\backslash
+bm{
+\backslash
+theta}_{m,c},
+\backslash
+bm{
+\backslash
+theta}_{p,g},
+\backslash
+theta_0
+\backslash
+))
+\end_layout
+
+\end_inset
+
+ and encoder measurement 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{z}_g(t_k)
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ at time 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(t_k
+\backslash
+)
+\end_layout
+
+\end_inset
+
+.
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_{p_k}^{c_k}(
+\backslash
+bm{x}_{
+\backslash
+theta},
+\backslash
+bm{z}_g(t_k)) = 
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_m^c(
+\backslash
+bm{
+\backslash
+theta}_{m,c})
+\backslash
+bm{R}_g^m(
+\backslash
+bm{z}_g(t_k),
+\backslash
+theta_0)
+\backslash
+bm{R}_p^g(
+\backslash
+bm{
+\backslash
+theta}_{p,g})
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+The DCM from 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(p_i
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ to 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(c_k
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ can be expressed making use of only the encoder and camera gyro as follows 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_{p_i}^{
+\backslash
+check{c}_k}=
+\backslash
+bm{R}_{c_i}^{c_k}
+\backslash
+bm{R}_{p_i}^{c_i}(
+\backslash
+bm{x}_{
+\backslash
+theta},
+\backslash
+bm{z}_g(t_i))
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+Similarly,
+ the DCM from 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(p_i
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ to 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(c_k
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ can be expressed making use of only the encoder and platform gyro as follows.
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_{p_i}^{
+\backslash
+hat{c}_k}=
+\backslash
+bm{R}_{p_k}^{c_k}(
+\backslash
+bm{x}_{
+\backslash
+theta},
+\backslash
+bm{z}_g(t_k))
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_{p_i}^{p_k}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+These matrices 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{R}_{p_i}^{
+\backslash
+hat{c}_k}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ and 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{R}_{p_i}^{
+\backslash
+check{c}_k}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ satisfy the following.
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_{
+\backslash
+hat{c}_k}^{
+\backslash
+check{c}_k}=
+\backslash
+bm{R}_{p_i}^{
+\backslash
+check{c}_k}
+\backslash
+bm{R}_{
+\backslash
+hat{c}_k}^{p_i}=
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_{c_i}^{c_k}
+\backslash
+bm{R}_{p_i}^{c_i}(
+\backslash
+bm{x}_{
+\backslash
+theta},
+\backslash
+bm{z}_g(t_i))
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_{p_k}^{p_i}
+\backslash
+bm{R}_{c_k}^{p_k}(
+\backslash
+bm{x}_{
+\backslash
+theta},
+\backslash
+bm{z}_g(t_k))
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+The parameters (
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{x}_{
+\backslash
+theta}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+) are chosen such that 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{R}_{
+\backslash
+hat{c}_k}^{
+\backslash
+check{c}_k}=
+\backslash
+bm{I}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+.
+ For a given set of parameters,
+ the extent to which the identity is not satisfied represents a rotation 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(SO[3]
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ that can be expressed using Rodrigues' formula.
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}_{
+\backslash
+hat{c}_k}^{
+\backslash
+check{c}_k} = 
+\backslash
+bm{I} + 
+\backslash
+sin 
+\backslash
+theta_e 
+\backslash
+tilde{
+\backslash
+bm{u}}_e + (1-
+\backslash
+cos 
+\backslash
+theta_e)
+\backslash
+tilde{
+\backslash
+bm{u}}_e
+\backslash
+tilde{
+\backslash
+bm{u}}_e
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+The rotation vector 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{
+\backslash
+theta}_e=
+\backslash
+theta_e
+\backslash
+bm{u}_e
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ can be extracted from the DCM 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{R}_{
+\backslash
+hat{c}_k}^{
+\backslash
+check{c}_k}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ using the method developed in Appendix 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+ref{sec:
+ Rodrigues Form}
+\end_layout
+
+\end_inset
+
+.
+ The problem is ready for a least-squares solution,
+ as discussed in Appendix 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+ref{sec:
+ Least squares}
+\end_layout
+
+\end_inset
+
+.
+ The user has the option to use the method of Section 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+ref{sec:
+ Gimbal to Cam Cal}
+\end_layout
+
+\end_inset
+
+ to determine the four of the parameters 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+((
+\backslash
+bm{
+\backslash
+theta}_{m,c},
+\backslash
+theta_0)
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ while the platform is stationary,
+ and use the procedure of this section to determine the remaining three 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{
+\backslash
+theta}_{p,g}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ during flight.
+ In either case,
+ the condition of the identifiability matrix should be evaluated to determine if a unique solution has been found.
+ If the identifiability matrix is ill conditioned,
+ additional observability maneuvers should be executed and added to the least-squares problem.
+ A solution like this can be considered a coarse alignment process,
+ particularly since there are several different clocks and critical data,
+ such as encoder values,
+ may not be time stamped.
+ This is likely acceptable for basic cuing purposes,
+ but should the need arise for additional precision,
+ these initial coarse alignment values can be used to initialize a Kalman filter that will simultaneously refine them and estimate clock offsets.
+ A Kalman filter should not be used in place of the least-squares solution for coarse alignment,
+ as the angles may be very large,
+ violating typical Kalman filter small angle error assumptions.
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+appendix
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Least Squares and Identifiability 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+label{sec:
+ Least squares}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The cost function is denoted by
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+J=
+\backslash
+sum_{k=1}^N ||
+\backslash
+bm{r}_k(
+\backslash
+bm{x})||^2 
+\backslash
+hspace{4 pt} ,
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+where 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{x} 
+\backslash
+in 
+\backslash
+mathbb{R}^4
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ is the parameter vector,
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{r}_k 
+\backslash
+in 
+\backslash
+mathbb{R}^3
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ is the rotation-vector residual for maneuver 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(k
+\backslash
+)
+\end_layout
+
+\end_inset
+
+.
+ Define the stacked residual as follows.
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{r}(
+\backslash
+bm{x})=
+\backslash
+begin{bmatrix} 
+\backslash
+bm{r}_1(
+\backslash
+bm{x}) 
+\backslash
+
+\backslash
+ 
+\backslash
+bm{r}_2(
+\backslash
+bm{x}) 
+\backslash
+
+\backslash
+ 
+\backslash
+vdots 
+\backslash
+
+\backslash
+ 
+\backslash
+bm{r}_N(
+\backslash
+bm{x}) 
+\backslash
+end{bmatrix} 
+\backslash
+in 
+\backslash
+mathbb{R}^{3N}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+The cost can be written as follows.
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+J = 
+\backslash
+bm{r}^T(
+\backslash
+bm{x})
+\backslash
+bm{r}(
+\backslash
+bm{x})
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+The residual can be expanded in a Taylor series.
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{r}(
+\backslash
+bm{x}) = 
+\backslash
+bm{r}(
+\backslash
+bm{x}_0) + 
+\backslash
+bm{F} 
+\backslash
+delta 
+\backslash
+bm{x} 
+\backslash
+hspace{4 pt} ,
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+where 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{F}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ is the Jacobian of 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{r}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ with respect to 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{x}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+.
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{F} = 
+\backslash
+left.
+ 
+\backslash
+frac{
+\backslash
+partial 
+\backslash
+bm{r}}{
+\backslash
+partial 
+\backslash
+bm{x}} 
+\backslash
+right |_{
+\backslash
+bm{x} = 
+\backslash
+bm{x}_0}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+The cost function can be expressed as follows.
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+J = 
+\backslash
+left(
+\backslash
+bm{r}(
+\backslash
+bm{x}_0) + 
+\backslash
+bm{F} 
+\backslash
+delta 
+\backslash
+bm{x}
+\backslash
+right)^T
+\backslash
+left(
+\backslash
+bm{r}(
+\backslash
+bm{x}_0) + 
+\backslash
+bm{F} 
+\backslash
+delta 
+\backslash
+bm{x}
+\backslash
+right)
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+Necessary conditions for a minimum require the partial derivative to be zero.
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+frac{
+\backslash
+partial J}{
+\backslash
+partial 
+\backslash
+bm{
+\backslash
+delta 
+\backslash
+bm{x}}} = 2
+\backslash
+left(
+\backslash
+bm{r}(
+\backslash
+bm{x}_0) + 
+\backslash
+bm{F} 
+\backslash
+delta 
+\backslash
+bm{x}
+\backslash
+right)^T
+\backslash
+bm{F}=
+\backslash
+bm{0}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+A slight rearrangement yields the following.
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{F}^T
+\backslash
+bm{F} 
+\backslash
+delta 
+\backslash
+bm{x} = -
+\backslash
+bm{F}^T
+\backslash
+bm{r}(
+\backslash
+bm{x}_0)
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+If 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{F}^T
+\backslash
+bm{F}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ has full rank,
+ it is invertible and the perturbation in 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{x}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ that optimizes the cost is given by the following.
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+ 
+\backslash
+delta 
+\backslash
+bm{x} = -
+\backslash
+left(
+\backslash
+bm{F}^T
+\backslash
+bm{F}
+\backslash
+right)^{-1}
+\backslash
+bm{F}^T
+\backslash
+bm{r}(
+\backslash
+bm{x}_0)
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+Since 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{F}^T
+\backslash
+bm{F}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ has full rank (and therefore has a trivial null space),
+ the only condition possible for a local minimum is that 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+left.
+ 
+\backslash
+bm{F}^T
+\backslash
+bm{r}(
+\backslash
+bm{x}_0)
+\backslash
+right|_{
+\backslash
+bm{x}_0=
+\backslash
+bm{x}^*}=
+\backslash
+bm{0}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+If this condition is not satisfied,
+ then 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+delta 
+\backslash
+bm{x} 
+\backslash
+neq 
+\backslash
+bm{0}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ and the solution at 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{x}_0
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ is not a minimum.
+\end_layout
+
+\begin_layout Subsection
+Identifiability
+\end_layout
+
+\begin_layout Standard
+Identifiability refers to whether the available data uniquely determines the model parameters.
+ A parameter vector is said to be (locally) identifiable if no other nearby parameter values produce the same predicted data.
+ In other words,
+ if two distinct parameter vectors yield identical measurements,
+ then the parameters are not identifiable.
+ To analyze this,
+ consider the measurement model 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(J(
+\backslash
+bm{x})
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ and its first-order expansion about a nominal solution 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{x}_0
+\backslash
+)
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+J(
+\backslash
+bm{x}_0+
+\backslash
+delta 
+\backslash
+bm{x})=J(
+\backslash
+bm{x}_0)+
+\backslash
+bm{F} 
+\backslash
+delta 
+\backslash
+bm{x} 
+\backslash
+hspace{4 pt} ,
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+where 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{F}=
+\backslash
+partial J / 
+\backslash
+partial 
+\backslash
+bm{x}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ is the Jacobian of the predicted data with respect to the parameters.
+ Identifiability requires that the only parameter perturbation 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+delta 
+\backslash
+bm{x}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ that leaves the predicted data unchanged is 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+delta 
+\backslash
+bm{x}=
+\backslash
+bm{0}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+.
+ This condition is satisfied if and only if the Jacobian has full column rank,
+ i.e.,
+ its nullspace is trivial.
+ Equivalently,
+ the associated information matrix 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{F}^T
+\backslash
+bm{F}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ must be full rank and invertible.
+ If 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{F}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ is rank-deficient,
+ then there exist nonzero parameter variations that do not affect the data,
+ indicating a loss of identifiability even if the model fits the data exactly.
+ It should be clear that local identifiability is a necessary condition for an isolated (unique) local minimum,
+ i.e.,
+ both require full rank of the information matrix 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{F}^T
+\backslash
+bm{F}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsection
+Observability Inputs
+\end_layout
+
+\begin_layout Standard
+System inputs should be adjusted (in the case at hand platform or gimbal rotations) 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{F}^T
+\backslash
+bm{F}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ becomes sufficiently conditioned.
+ A baseline set of maneuvers should be 
+\nospellcheck on
+programmed
+\nospellcheck default
+,
+ and then a least-squares solution attempted,
+ during which,
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+bm{F}^T
+\backslash
+bm{F}
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ will be computed.
+ A SVD should be performed on this matrix and ensure it is properly conditioned (test by requiring the ratio of smallest to largest eigenvalue being greater than 0.01).
+ If it is not properly conditioned,
+ an additional maneuver should be included in the calibration set and the process repeated.
+\end_layout
+
+\begin_layout Section
+Rodrigues' Formula 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+label{sec:
+ Rodrigues Form}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+It is useful to find the equivalent axis angle representation in a direction cosine matrix.
+ Rodrigues' formula states the following.
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}=
+\backslash
+bm{I} + 
+\backslash
+sin 
+\backslash
+theta 
+\backslash
+tilde{
+\backslash
+bm{u}} + (1-
+\backslash
+cos 
+\backslash
+theta)
+\backslash
+tilde{
+\backslash
+bm{u}}
+\backslash
+tilde{
+\backslash
+bm{u}} 
+\backslash
+label{RF:
+ form}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+Using the double cross product identity gives the following.
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+tilde{
+\backslash
+bm{u}}
+\backslash
+tilde{
+\backslash
+bm{u}} = 
+\backslash
+bm{u}
+\backslash
+bm{u}^T-
+\backslash
+bm{I} 
+\backslash
+label{RF:
+ double cross}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+Substituting (
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+ref{RF:
+ double cross}
+\end_layout
+
+\end_inset
+
+) into (
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+ref{RF:
+ form}
+\end_layout
+
+\end_inset
+
+) gives the following.
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}=
+\backslash
+bm{I} + 
+\backslash
+sin 
+\backslash
+theta 
+\backslash
+tilde{
+\backslash
+bm{u}} + (1-
+\backslash
+cos 
+\backslash
+theta)
+\backslash
+left(
+\backslash
+bm{u}
+\backslash
+bm{u}^T-
+\backslash
+bm{I}
+\backslash
+right) 
+\backslash
+label{RF:
+ form 2}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+The trace of (
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+ref{RF:
+ form 2}
+\end_layout
+
+\end_inset
+
+) satisfies the following.
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+trace(
+\backslash
+bm{R}) = 3 + (1-
+\backslash
+cos 
+\backslash
+theta) trace
+\backslash
+left(
+\backslash
+bm{u}
+\backslash
+bm{u}^T-
+\backslash
+bm{I}
+\backslash
+right) = 3 + (1-
+\backslash
+cos 
+\backslash
+theta)(1-3)=1+2
+\backslash
+cos 
+\backslash
+theta 
+\backslash
+label{RF:
+ cos the form}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+Solving (
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+ref{RF:
+ cos the form}
+\end_layout
+
+\end_inset
+
+) for 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+(
+\backslash
+theta
+\backslash
+)
+\end_layout
+
+\end_inset
+
+ gives the following.
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+theta = 
+\backslash
+arccos
+\backslash
+left(
+\backslash
+frac{trace(
+\backslash
+bm{R})-1}{2} 
+\backslash
+right)
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+Subtracting the transpose of (
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+ref{RF:
+ form 2}
+\end_layout
+
+\end_inset
+
+) from itself gives the following.
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+bm{R}-
+\backslash
+bm{R}^T=2
+\backslash
+sin 
+\backslash
+theta 
+\backslash
+tilde{
+\backslash
+bm{u}} 
+\backslash
+label{RF:
+ u from}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+Solving (
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+ref{RF:
+ u from}
+\end_layout
+
+\end_inset
+
+) for the angle of rotation gives the following.
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{equation}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+tilde{
+\backslash
+bm{u}}=
+\backslash
+frac{1}{2
+\backslash
+sin 
+\backslash
+theta}
+\backslash
+left(
+\backslash
+bm{R}-
+\backslash
+bm{R}^T
+\backslash
+right)
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{equation}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document
