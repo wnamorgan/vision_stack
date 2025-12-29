@@ -1,1 +1,3 @@
 *.lyx~
+old/
+.venv/
