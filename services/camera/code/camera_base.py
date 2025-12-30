@@ -1,12 +1,9 @@
 import sys
 import os
 
-# Add the root directory of your project to the sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-
 import zmq
 import numpy as np
-from common.shm.shared_memory_manager import SharedMemoryManager
+from .shared_memory_manager import SharedMemoryManager
 import time
 import threading
 
