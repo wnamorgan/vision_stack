@@ -1,3 +1,4 @@
 *.lyx~
 old/
 .venv/
+__pycache__
