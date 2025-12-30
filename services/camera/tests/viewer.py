@@ -1,10 +1,9 @@
-
 import time
 import cv2
-import sys
-import os
 import zmq
-
+import numpy as np
+from multiprocessing import shared_memory
+from multiprocessing import resource_tracker
 
 from pathlib import Path
 import sys
@@ -15,77 +14,82 @@ sys.path.insert(0, str(CAMERA_ROOT))
 from code.shared_memory_manager import SharedMemoryManager
 from code.usb_camera import USB_Camera
 
-def cleanup_shared_memory(shm_name="frame_shm"):
-    """Clean up any leftover shared memory before starting a new run."""
-    try:
-        # Check if shared memory exists and unlink it
-        shm = SharedMemoryManager(shm_name=shm_name)
-        if shm:
-            shm.cleanup()  # Ensure it's cleaned up
-            print(f"Cleaned up previous shared memory: {shm_name}")
-    except Exception as e:
-        print(f"No previous shared memory found or cleanup failed: {e}")
 
-
+# ---- constants (must match camera allocation for now) ----
+MAX_WIDTH  = 7680
+MAX_HEIGHT = 4320
 
 def main():
-
-    # Clean up leftover shared memory before starting
-    cleanup_shared_memory()
-
-    # Create a USB camera instance
+    # Create a USB camera instance (camera still owns SHM)
+    from code.usb_camera import USB_Camera
     camera = USB_Camera()
-    # Start camera capture
     camera.start_capture()
 
-    # Set up ZeroMQ subscriber to listen for frame messages
+    # ZeroMQ subscriber
     context = zmq.Context()
     socket = context.socket(zmq.SUB)
-    socket.connect("tcp://localhost:5555")  # Assuming publisher is on localhost
-
-    # Subscribe to all messages (can be more specific if needed)
+    socket.connect("tcp://localhost:5555")
     socket.setsockopt_string(zmq.SUBSCRIBE, "")
 
-    # FPS calculation
-    frame_count = 0
-    start_time = time.time()
-
-    (width,height) = (1280,720)
-
-    cv2.namedWindow("stream", cv2.WINDOW_NORMAL)
-    cv2.resizeWindow("stream", width, height)
+    width = height = channels = None
+    shm = None
+    frame_buf = None
 
     last_fps_calc = time.time()
     frame_count = 0
-    fps = 0
-    shm_manager = SharedMemoryManager()
+    fps = 0.0
 
     try:
         while True:
-            message = socket.recv_string()  # Wait for a message from ZeroMQ
-            frame_count += 1  # Increment the frame count
-            frame = shm_manager.read_frame(width, height)
+            msg = socket.recv_json()
+
+            # First frame: attach to shared memory
+            if shm is None:
+                width    = msg["width"]
+                height   = msg["height"]
+                channels = msg["channels"]
+                shm_name = msg["shm_name"]
+
+                shm = shared_memory.SharedMemory(name=shm_name)
+                resource_tracker.unregister(shm._name, "shared_memory")
+                frame_buf = np.ndarray(
+                    (MAX_HEIGHT, MAX_WIDTH, channels),
+                    dtype=np.uint8,
+                    buffer=shm.buf[: MAX_WIDTH * MAX_HEIGHT * channels]
+                )
+
+                cv2.namedWindow("stream", cv2.WINDOW_NORMAL)
+                cv2.resizeWindow("stream", width, height)
+
+            frame_count += 1
+            frame = frame_buf[:height, :width, :].copy()
+
             now = time.time()
             elapsed = now - last_fps_calc
             if elapsed >= 1.0:
                 fps = frame_count / elapsed
                 frame_count = 0
                 last_fps_calc = now
-        
-            fps_text = f"FPS: {fps:.1f}"
-            cv2.putText(frame, fps_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0,
-                            (255, 255, 255), 2, cv2.LINE_AA)  
-            if frame is not None:
-                cv2.imshow("stream", frame)
+
+            cv2.putText(
+                frame, f"FPS: {fps:.1f}", (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0,
+                (255, 255, 255), 2, cv2.LINE_AA
+            )
+
+            cv2.imshow("stream", frame)
             if cv2.waitKey(1) == ord("q"):
                 break
- 
+
     except KeyboardInterrupt:
-        print("Stopping capture.")
-        camera.stop_capture()  # Stop the camera capture on exit
-
-
-
+        pass
+    finally:
+        camera.stop_capture()
+        if shm is not None:
+            shm.close()
+        cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    main()    
+    main()
+
+

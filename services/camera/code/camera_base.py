@@ -1,10 +1,5 @@
-import sys
-import os
-
 import zmq
-import numpy as np
 from .shared_memory_manager import SharedMemoryManager
-import time
 import threading
 
 class Camera:
@@ -48,10 +43,8 @@ class Camera:
 
             if ok and frame_bgr is not None:
                 try:
-                    # Write frame to shared memory
                     self.write_frame_to_shared_memory(frame_bgr)
-                    # Send ZeroMQ message
-                    self.send_zeromq_message()
+                    self.send_frame_metadata(frame_bgr)
                 except Exception as e:
                     print(f"Error writing frame to shared memory: {e}")
 
@@ -65,17 +58,18 @@ class Camera:
         self.exit_flag.set()  # Signal the thread to stop
         self.capture_thread.join()  # Wait for the thread to finish
 
+
     def send_frame_metadata(self, frame):
-        """Send frame metadata (ID and size) via ZeroMQ as a JSON message."""
-        # Extract size from frame shape (rows, columns, channels)
-        frame_size = frame.shape[:3]  # (r, c, h)
-
-        # Increment frame ID counter
+        h, w, c = frame.shape
+    
         self.frame_id_counter += 1
-        frame_id = self.frame_id_counter
-
-        # Create the message
-        message = {
-            "frame_id": frame_id,
-            "size": list(frame_size)  # Convert tuple to list for JSON serialization
-        }    
+    
+        msg = {
+            "shm_name": self.shm_manager.shm_name,
+            "width": w,
+            "height": h,
+            "channels": c,
+            "frame_id": self.frame_id_counter,
+        }
+    
+        self.socket.send_json(msg)            
