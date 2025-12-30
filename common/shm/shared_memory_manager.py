@@ -14,11 +14,12 @@ class SharedMemoryManager:
         # If shared memory has not been created yet, create it
         if SharedMemoryManager._shm is None:
             SharedMemoryManager._shm = shared_memory.SharedMemory(create=True, name=self.shm_name, size=self.shm_size + 12)
-            self.frame_data = np.ndarray((self.max_height, self.max_width, self.channels), dtype=np.uint8, buffer=SharedMemoryManager._shm.buf)
-            self.metadata = np.ndarray((1, 3), dtype=np.int32, buffer=SharedMemoryManager._shm.buf)  # Store width, height, channels
-        else:
-            self.frame_data = np.ndarray((self.max_height, self.max_width, self.channels), dtype=np.uint8, buffer=SharedMemoryManager._shm.buf)
-            self.metadata = np.ndarray((1, 3), dtype=np.int32, buffer=SharedMemoryManager._shm.buf)
+
+        frame_buffer    = SharedMemoryManager._shm.buf[:self.shm_size]
+        metadata_buffer = SharedMemoryManager._shm.buf[self.shm_size:(self.shm_size + 12)]
+        self.frame_data = np.ndarray((self.max_height, self.max_width, self.channels), dtype=np.uint8, buffer=frame_buffer)
+        self.metadata   = np.ndarray((1, 3), dtype=np.int32, buffer=metadata_buffer)
+
 
     def write_metadata(self, width, height):
         """Write frame dimensions to metadata."""
@@ -40,3 +41,4 @@ class SharedMemoryManager:
         if SharedMemoryManager._shm:
             SharedMemoryManager._shm.close()
             SharedMemoryManager._shm.unlink()
+            SharedMemoryManager._shm = None
