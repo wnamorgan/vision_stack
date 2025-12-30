@@ -3,7 +3,6 @@ import cv2
 import zmq
 import numpy as np
 from multiprocessing import shared_memory
-from multiprocessing import resource_tracker
 
 from pathlib import Path
 import sys
@@ -51,7 +50,6 @@ def main():
                 shm_name = msg["shm_name"]
 
                 shm = shared_memory.SharedMemory(name=shm_name)
-                resource_tracker.unregister(shm._name, "shared_memory")
                 frame_buf = np.ndarray(
                     (MAX_HEIGHT, MAX_WIDTH, channels),
                     dtype=np.uint8,
