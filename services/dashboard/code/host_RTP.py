@@ -1,3 +1,4 @@
+import os
 import time
 import cv2
 import numpy as np
@@ -9,12 +10,12 @@ from gi.repository import Gst
 from multiprocessing import shared_memory
 import zmq
 
-# ---- constants ----
+# ---- defaults ----
 W, H, FPS = 1280, 720, 120
 Q = 80  # jpeg quality
-PORT = 5004
-DST_IP = "127.0.0.1"   # receiver
-DST_IP = "192.168.1.255"
+ZMQ_SUB_ENDPOINT = os.getenv("ZMQ_SUB_ENDPOINT", "tcp://localhost:5555")
+RTP_PORT = int(os.getenv("RTP_PORT", "5004"))
+RTP_DST_IP = os.getenv("RTP_DST_IP", "127.0.0.1")
 
 class HostRTP:
     def __init__(self):
@@ -28,7 +29,7 @@ class HostRTP:
 
         self.context = zmq.Context()
         self.sub_socket = self.context.socket(zmq.SUB)
-        self.sub_socket.connect("tcp://localhost:5555")
+        self.sub_socket.connect(ZMQ_SUB_ENDPOINT)
         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "")
         self.sub_socket.RCVTIMEO = 200
 
@@ -58,7 +59,7 @@ class HostRTP:
             self.sub_socket.close()
             self.context.term()
 
-    def setup_pipeline(self, port: int = PORT, dst_ip: str = DST_IP, fps: int = FPS):
+    def setup_pipeline(self, port: int = RTP_PORT, dst_ip: str = RTP_DST_IP, fps: int = FPS):
         self.port   = port
         self.dst_ip = dst_ip
         self.fps    = fps
