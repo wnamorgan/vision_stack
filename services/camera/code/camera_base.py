@@ -1,3 +1,4 @@
+import os
 import zmq
 import threading
 from multiprocessing import shared_memory
@@ -12,16 +13,21 @@ class Camera:
         # ZeroMQ publisher
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.PUB)
-        self.socket.bind("tcp://*:5555")  # ZeroMQ PUB socket
+        pub_endpoint = os.getenv("ZMQ_PUB_ENDPOINT", "tcp://*:5555")
+        self.socket.bind(pub_endpoint)  # ZeroMQ PUB socket
 
         self.exit_flag = threading.Event()  # For signaling thread to stop
         self.capture_thread = threading.Thread(target=self.capture_frames)  # Create the capture thread
 
     def setup_shm(self):
-        self.shm_name = "frame_shm"
-        self.max_width = 7680
-        self.max_height = 4320
-        self.channels = 3
+        def env_int(var, default):
+            value = os.getenv(var)
+            return int(value) if value else default
+
+        self.shm_name = os.getenv("SHM_NAME", "frame_shm")
+        self.max_width = env_int("MAX_WIDTH", 7680)
+        self.max_height = env_int("MAX_HEIGHT", 4320)
+        self.channels = env_int("CHANNELS", 3)
     
         # ---- sizes ----
         self.pixel_bytes = self.max_width * self.max_height * self.channels
@@ -43,6 +49,7 @@ class Camera:
                 name=self.shm_name,
                 size=self.shm_size,
             )
+        self._ensure_shm_permissions()
     
         buf = self.shm.buf
     
@@ -126,5 +133,19 @@ class Camera:
             "channels": c,
             "frame_id": self.frame_id_counter,
         }
-    
+
         self.socket.send_json(msg)            
+
+    def _ensure_shm_permissions(self):
+        if os.name != "posix":
+            return
+
+        if self.shm_name.startswith("/"):
+            path = f"/dev/shm{self.shm_name}"
+        else:
+            path = f"/dev/shm/{self.shm_name}"
+
+        try:
+            os.chmod(path, 0o666)
+        except FileNotFoundError:
+            pass
