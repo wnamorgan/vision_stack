@@ -14,18 +14,10 @@ The dashboard runs headless and simply publishes RTP frames to `RTP_DST_IP:RTP_P
 
 ### Running with Docker (`run.sh`)
 
-The helper script sources `services/dashboard/.env`, mounts the service tree, and runs the container interactively over the host network so it can reach a locally running camera.
+`run.sh` uses the same image but overrides `ZMQ_SUB_ENDPOINT` to `localhost` (set `FORCE_LOCAL=1` if you need that explicitly) while keeping the Compose `.env` values untouched. It shares IPC/network so the dashboard can open the camera’s shared memory when you run the camera service locally. Run the script and then attach to the camera stream (e.g., via the GStreamer viewer) to confirm the pipeline:
 
 ```bash
 ./services/dashboard/run.sh
-```
-
-Use this `.env` for local development (`FORCE_LOCAL=1` reset to `localhost` if you ever override it manually):
-
-```bash
-ZMQ_SUB_ENDPOINT=tcp://localhost:5555
-RTP_PORT=5004
-RTP_DST_IP=127.0.0.1
 ```
 
 ### Running with Docker Compose
@@ -37,6 +29,14 @@ ZMQ_SUB_ENDPOINT=tcp://camera:5555
 RTP_PORT=5004
 RTP_DST_IP=127.0.0.1
 ```
+
+Bring up the stack with:
+
+```bash
+docker compose up --build
+```
+
+Compose already shares IPC via `ipc: host`, which lets the dashboard access the camera’s shared memory segment, and the dashboard service overrides `ZMQ_SUB_ENDPOINT` so it always connects to `camera:5555`.
 
 ## Tests
 

@@ -8,6 +8,7 @@ import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst
 from multiprocessing import shared_memory
+from multiprocessing import resource_tracker
 import zmq
 
 # ---- defaults ----
@@ -80,7 +81,7 @@ class HostRTP:
 
         count = 0
         last = time.time()
-           
+        fps = None   
         while not self.stop_event.is_set():
             try: 
                 # Block until a frame is available or timeout occurs
@@ -96,6 +97,11 @@ class HostRTP:
                 frame = frame_bgr
 
 
+ 
+    
+            # Send Frames
+            frame = cv2.resize(frame, (W, H), interpolation=cv2.INTER_LINEAR)
+
             # FPS
             count += 1
             now = time.time()
@@ -103,10 +109,14 @@ class HostRTP:
                 fps = count / (now - last)
                 print(f"[TX] FPS={fps:.1f}")
                 count = 0
-                last = now    
-    
-            # Send Frames
-            frame = cv2.resize(frame, (W, H), interpolation=cv2.INTER_LINEAR)
+                last = now   
+
+            if True and fps:
+                cv2.putText(
+                    frame, f"FPS: {fps:.1f}", (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0,
+                    (255, 255, 255), 2, cv2.LINE_AA
+                )
             ok, jpg = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), Q])
             if not ok: continue
             data = jpg.tobytes()
@@ -148,6 +158,7 @@ class HostRTP:
             # First frame: attach to SHM
             if self.shm is None:
                 self.shm = shared_memory.SharedMemory(name=self.shm_name)
+                resource_tracker.unregister(self.shm._name, "shared_memory")
                 self.frame_buf = np.ndarray(
                     (self.MAX_HEIGHT, self.MAX_WIDTH, self.channels),  # Use instance vars here
                     dtype=np.uint8,

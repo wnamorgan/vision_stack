@@ -1,0 +1,31 @@
+networks:
+  vision:
+    driver: bridge
+
+services:
+  camera:
+    build:
+      context: ./services/camera
+    env_file: ./services/camera/.env
+    volumes:
+      - ./services/camera:/app
+    ipc: host
+    devices:
+      - "${CAM_DEVICE}:${CAM_DEVICE}"
+    networks:
+      - vision
+
+  dashboard:
+    build:
+      context: ./services/dashboard
+    env_file: ./services/dashboard/.env
+    volumes:
+      - ./services/dashboard:/app    
+    environment:
+      ZMQ_SUB_ENDPOINT: tcp://camera:5555
+      RTP_DST_IP: 172.17.0.1
+    depends_on:
+      - camera
+    ipc: host
+    networks:
+      - vision
