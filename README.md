@@ -30,7 +30,7 @@ If you need automatic V4L2 detection, use `scripts/up.sh`—it scans `/dev/video
 Bring everything up on the shared `vision` network:
 
 ```bash
-docker compose up --build
+docker compose up 
 ```
 
 ### Stopping the stack
