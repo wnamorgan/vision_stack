@@ -41,5 +41,13 @@ services:
     ports:
       - "5004:5004/udp"  # RTP Stream
       - "8080:80/tcp"    # Web UI access from the host via localhost:8080
-
-
+  gcs:
+    build:
+      context: ./services/gcs
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./services/gcs:/app
+    env_file:
+      - ./services/gcs/.env
+    command: python server.py

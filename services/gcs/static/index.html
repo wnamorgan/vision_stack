@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Video Canvas</title>
+  <style>
+    body { margin: 0; background: black; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas" width="1280" height="720"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+function update() {
+  const img = new Image();
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  };
+  img.src = "/frame.jpg?ts=" + Date.now(); // cache bust
+  requestAnimationFrame(update);
+}
+
+canvas.onclick = (e) => {
+  const r = canvas.getBoundingClientRect();
+  const x = Math.floor((e.clientX - r.left) * canvas.width / r.width);
+  const y = Math.floor((e.clientY - r.top)  * canvas.height / r.height);
+  console.log("click:", x, y);
+  // Later: POST this to backend -> UDP to host
+};
+
+update();
+</script>
+
+</body>
+</html>
