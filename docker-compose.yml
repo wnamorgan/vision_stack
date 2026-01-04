@@ -50,4 +50,4 @@ services:
       - ./services/gcs:/app
     env_file:
       - ./services/gcs/.env
-    command: python server.py
+    #command: python server.py

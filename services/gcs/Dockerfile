@@ -24,21 +24,27 @@ RUN apt-get update && apt-get install -y \
     gstreamer1.0-libav \
     python3-gi \
     gir1.2-gstreamer-1.0 \
+    tcpdump \
+    nano \
     && rm -rf /var/lib/apt/lists/*
 
 # Python tooling
 RUN pip install --upgrade pip wheel
 
 # Python deps (pin PyGObject for Debian)
-RUN pip install \
+RUN pip install --no-cache-dir \
     numpy \
     pyzmq \
     opencv-python-headless \
     pycairo \
     fastapi \
     uvicorn \
-    "PyGObject<3.46"
-
+    "PyGObject<3.46" \
+    dash \
+    dash-bootstrap-components \
+    requests \
+    pydantic 
+    
 WORKDIR /app
 COPY server.py /app/server.py
 COPY static /app/static
