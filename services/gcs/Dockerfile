@@ -44,10 +44,10 @@ RUN pip install --no-cache-dir \
     dash-bootstrap-components \
     requests \
     pydantic 
-    
-WORKDIR /app
-COPY server.py /app/server.py
-COPY static /app/static
 
+WORKDIR /app
+
+COPY . /app
+  
 CMD ["python", "run_gcs.py"]
 #CMD ["bash","-lc","sleep infinity"]

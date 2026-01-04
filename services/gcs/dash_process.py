@@ -5,6 +5,7 @@ import requests
 import os
 
 CONTROL_API_PORT = int(os.getenv("CONTROL_API_PORT", "8100"))
+DASH_PORT = int(os.getenv("DASH_PORT", "8080"))
 
 def run():
     app = dash.Dash(__name__)
@@ -22,4 +23,4 @@ def run():
         r = requests.post(f"http://127.0.0.1:{CONTROL_API_PORT}/control/hello", json={"value": n})
         return r.json()
 
-    app.run(host="0.0.0.0", port=8080)
+    app.run(host="0.0.0.0", port=DASH_PORT)

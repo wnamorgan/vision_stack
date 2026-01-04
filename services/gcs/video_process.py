@@ -5,6 +5,7 @@ import cv2
 from fastapi import FastAPI
 from fastapi.responses import Response
 import uvicorn
+from fastapi.responses import FileResponse
 
 import gi
 gi.require_version("Gst", "1.0")
@@ -53,6 +54,10 @@ def run():
 
     app = FastAPI()
 
+    @app.get("/")
+    def index():
+        return FileResponse("static/index.html")
+    
     @app.get("/frame.jpg")
     def frame():
         with lock:
