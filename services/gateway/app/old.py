@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Entrypoint for the dashboard host RTP service."""
+"""Entrypoint for the gateway host RTP service."""
 
 import signal
 import logging

@@ -1,4 +1,4 @@
-"""Self-contained dashboard container smoke test."""
+"""Self-contained gateway container smoke test."""
 
 import signal
 import threading

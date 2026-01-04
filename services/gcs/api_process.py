@@ -3,7 +3,7 @@ import zmq
 from fastapi import FastAPI
 from pydantic import BaseModel
 import uvicorn
-
+import logging
 from typing import Optional
 
 from control_schema import ControlIntent
@@ -26,6 +26,11 @@ def run():
 
     @app.post("/control/hello")
     def hello(req: HelloReq):
+        print("[API] sending intent to ZMQ")
+
+        log = logging.getLogger("api")
+        logging.basicConfig(level=logging.INFO)
+        log.info("[API] handler entered")        
         intent = ControlIntent(type="HELLO", value=req.value)
         sock.send_json(intent.normalize())
         return {"status": "sent"}

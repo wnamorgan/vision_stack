@@ -12,7 +12,9 @@ from multiprocessing import resource_tracker
 import zmq
 
 # ---- defaults ----
-W, H, FPS = 1280, 720, 120
+FPS = 120 #TODO - get rid of codes dependency on FPS
+W = int(os.getenv("RTP_WIDTH", 1280))
+H = int(os.getenv("RTP_HEIGHT", 720))
 Q = 80  # jpeg quality
 ZMQ_SUB_ENDPOINT = os.getenv("ZMQ_SUB_ENDPOINT", "tcp://localhost:5555")
 RTP_PORT = int(os.getenv("RTP_PORT", "5004"))

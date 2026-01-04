@@ -49,5 +49,5 @@ WORKDIR /app
 COPY server.py /app/server.py
 COPY static /app/static
 
-#CMD ["python", "server.py"]
-CMD ["bash","-lc","sleep infinity"]
+CMD ["python", "run_gcs.py"]
+#CMD ["bash","-lc","sleep infinity"]

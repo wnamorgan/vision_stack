@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/.env"
 
-IMAGE_NAME="${DASHBOARD_IMAGE:-vision_stack-dashboard}"
+IMAGE_NAME="${GATEWAY_IMAGE:-vision_stack-gateway}"
 
 FORCE_LOCAL=${FORCE_LOCAL:-0}
 LOCAL_ENDPOINT=${LOCAL_ENDPOINT:-tcp://localhost:5555}
@@ -15,5 +15,5 @@ docker run --rm \
     -v "${SCRIPT_DIR}:/app" \
     --ipc=host \
     --network=host \
-    --name "vision-stack-dashboard" \
+    --name "vision-stack-gateway" \
     "${IMAGE_NAME}"

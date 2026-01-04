@@ -37,6 +37,6 @@ WORKDIR /app
 
 COPY . /app
 
-CMD ["python", "app/run_dashboard.py"]
+CMD ["python", "app/run_gateway.py"]
 #CMD ["bash","-lc","sleep infinity"]
 

@@ -23,12 +23,12 @@ services:
     networks:
       - vision
 
-  dashboard:
+  gateway:
     build:
-      context: ./services/dashboard
-    env_file: ./services/dashboard/.env
+      context: ./services/gateway
+    env_file: ./services/gateway/.env
     volumes:
-      - ./services/dashboard:/app
+      - ./services/gateway:/app
     environment:
       ZMQ_SUB_ENDPOINT: tcp://camera:5555
       RTP_DST_IP: 192.168.1.255
@@ -40,7 +40,9 @@ services:
       - macvlan
     ports:
       - "5004:5004/udp"  # RTP Stream
+      - "9000:9000/udp"  # UDP Rx    
       - "8080:80/tcp"    # Web UI access from the host via localhost:8080
+
   gcs:
     build:
       context: ./services/gcs
@@ -50,4 +52,4 @@ services:
       - ./services/gcs:/app
     env_file:
       - ./services/gcs/.env
-    #command: python server.py
+#    command: python run_gcs.py
