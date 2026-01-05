@@ -65,4 +65,4 @@ def run():
                 return Response(status_code=204)
             return Response(latest_jpeg, media_type="image/jpeg")
 
-    uvicorn.run(app, host="0.0.0.0", port=VIDEO_HTTP_PORT)
+    uvicorn.run(app, host="0.0.0.0", port=VIDEO_HTTP_PORT, access_log=False)
