@@ -10,6 +10,7 @@ from gi.repository import Gst
 from multiprocessing import shared_memory
 from multiprocessing import resource_tracker
 import zmq
+import logging
 
 # ---- defaults ----
 FPS = 120 #TODO - get rid of codes dependency on FPS
@@ -35,6 +36,9 @@ class HostRTP:
         self.sub_socket.connect(ZMQ_SUB_ENDPOINT)
         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "")
         self.sub_socket.RCVTIMEO = 200
+        self.log = logging.getLogger("RTP Rx")
+        logging.basicConfig(level=logging.INFO)
+        self.frame_id = 0 
 
     def run(self):
 
@@ -169,7 +173,9 @@ class HostRTP:
 
             # Read latest frame (copy semantics preserved)
             frame = self.frame_buf[:self.height, :self.width, :self.channels].copy()
-
+            self.frame_id +=1
+            if self.frame_id % 1000 == 0:
+                self.log.info(f"[RTP Rx] Frame Count = {self.frame_id}")  
             # TEMP: feed into existing RTP path
             try:
                 self.frame_queue.put_nowait(frame)

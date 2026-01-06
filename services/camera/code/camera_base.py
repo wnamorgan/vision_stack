@@ -3,7 +3,7 @@ import zmq
 import threading
 from multiprocessing import shared_memory
 import numpy as np
-
+import logging
 class Camera:
     frame_id_counter=0
     def __init__(self):
@@ -18,7 +18,10 @@ class Camera:
 
         self.exit_flag = threading.Event()  # For signaling thread to stop
         self.capture_thread = threading.Thread(target=self.capture_frames)  # Create the capture thread
-
+        self.log = logging.getLogger("camera")
+        logging.basicConfig(level=logging.INFO)
+        self.frame_id = 0
+        
     def setup_shm(self):
         def env_int(var, default):
             value = os.getenv(var)
@@ -98,6 +101,9 @@ class Camera:
         """Main loop to capture frames continuously, write to shared memory, and send ZeroMQ notifications."""
         while not self.exit_flag.is_set():  # Check the exit flag to stop the thread
             ok, frame_bgr = self.capture_frame()  # Capture a frame (implementation in child class)
+            self.frame_id += 1
+            if self.frame_id % 1000 == 0:
+                self.log.info(f"[Camera] Frame Count = {self.frame_id}")
             if ok and frame_bgr is not None:
                 self.write_frame_to_shared_memory(frame_bgr)
                 self.send_frame_metadata(frame_bgr)

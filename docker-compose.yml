@@ -1,10 +1,14 @@
 networks:
   vision:
     driver: bridge  # Docker bridge network for internal communication
+    ipam:
+      config:
+        - subnet: 172.30.10.0/24
+          gateway: ${VISION_GATEWAY}    
   macvlan:
     driver: macvlan
     driver_opts:
-      parent: eno1  # Replace with your actual network interface (e.g., eth0, eno1)
+      parent: ${MACVLAN_PARENT} 
     ipam:
       config:
         - subnet: 192.168.1.0/24  # Define the subnet range
@@ -31,7 +35,10 @@ services:
       - ./services/gateway:/app
     environment:
       ZMQ_SUB_ENDPOINT: tcp://camera:5555
-      RTP_DST_IP: 192.168.1.255
+      # RTP destination modes:
+      # - Host-side viewing/debugging: 172.30.10.1
+      # - Remote-side LAN: 192.168.1.X (use .255 only for broadcast)
+      RTP_DST_IP: ${VISION_GATEWAY}
     depends_on:
       - camera
     ipc: host
@@ -39,9 +46,9 @@ services:
       - vision
       - macvlan
     ports:
-      - "5004:5004/udp"  # RTP Stream
-      - "9000:9000/udp"  # UDP Rx    
-      - "8080:80/tcp"    # Web UI access from the host via localhost:8080
+#      - "5004:5004/udp"  # RTP Stream
+      - "9000:9000/udp"  # UDP Rx (only needed used when running gcs on host, but doesn't hurt remote/macvlan)    
+      - "8081:80/tcp"    # Web UI access from the host via localhost:8080
 
   gcs:
     build:
