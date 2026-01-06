@@ -1,18 +1,19 @@
 networks:
   vision:
-    driver: bridge  # Docker bridge network for internal communication
+    driver: bridge
     ipam:
       config:
         - subnet: 172.30.10.0/24
-          gateway: ${VISION_GATEWAY}    
+          gateway: 172.30.10.1
+
   macvlan:
     driver: macvlan
     driver_opts:
-      parent: ${MACVLAN_PARENT} 
+      parent: ${MACVLAN_PARENT}
     ipam:
       config:
-        - subnet: 192.168.1.0/24  # Define the subnet range
-          gateway: 192.168.1.1    # Define the gateway
+        - subnet: 192.168.1.0/24
+          gateway: 192.168.1.1
 
 services:
   camera:
@@ -35,10 +36,16 @@ services:
       - ./services/gateway:/app
     environment:
       ZMQ_SUB_ENDPOINT: tcp://camera:5555
-      # RTP destination modes:
-      # - Host-side viewing/debugging: 172.30.10.1
-      # - Remote-side LAN: 192.168.1.X (use .255 only for broadcast)
-      RTP_DST_IP: ${VISION_GATEWAY}
+
+      # LOCAL: send RTP on the vision network so BOTH host gst-launch and local GCS can receive
+      RTP_DST_IP: 172.30.10.255
+      RTP_PORT: 5004
+
+      # REMOTE: switch to macvlan LAN (unicast preferred; .255 broadcast optional)
+      # RTP_DST_IP: 192.168.1.255
+      # RTP_PORT: 5004
+      # RTP_DST_IP: 192.168.1.<remote_receiver>
+      # RTP_PORT: 5004
     depends_on:
       - camera
     ipc: host
@@ -46,17 +53,25 @@ services:
       - vision
       - macvlan
     ports:
-#      - "5004:5004/udp"  # RTP Stream
-      - "9000:9000/udp"  # UDP Rx (only needed used when running gcs on host, but doesn't hurt remote/macvlan)    
-      - "8081:80/tcp"    # Web UI access from the host via localhost:8080
+      # keep only if you need gateway's web UI from the host
+      - "8082:80/tcp"
 
   gcs:
     build:
       context: ./services/gcs
-    network_mode: host
     restart: unless-stopped
     volumes:
       - ./services/gcs:/app
     env_file:
       - ./services/gcs/.env
+    networks:
+      - vision
+    ports:
+      # publish these so the host can reach the GCS web services
+      # (use non-conflicting host ports; your host already has something on 8081)
+      - "18000:8000/tcp"  # VIDEO_HTTP_PORT
+      - "18100:8100/tcp"  # CONTROL_API_PORT
+      - "18081:8081/tcp"  # DASH_PORT
+
+
 #    command: python run_gcs.py
