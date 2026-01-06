@@ -192,7 +192,17 @@ Upon consistent detections across N frames (and/or confidence thresholds):
   - inertial LOS + image measurement,
   - timestamps and poses for correct association.
 
-### 8.2 After lock
+
+### 8.2 Temporal confirmation (M-of-N) via Norfair’s leaky hit counter
+
+For small/far objects, single-frame YOLO scores and boxes are noisy. A practical fix is to run the detector at a **low confidence threshold** and require **temporal persistence** before “declaring” a real target. In tracking literature this is commonly called **M-out-of-N (history) track confirmation / track initiation** (e.g., the [MathWorks track logic overview](https://www.mathworks.com/help/fusion/ug/introduction-to-track-logic.html) or the [RadarTutorial track initiation concepts](https://www.radartutorial.eu/10.processing/sp22.en.html)). This enables weak-evidence accumulation over time and suppresses one-frame false alarms.
+
+**Norfair** approximates M-of-N using a **leaky hit counter**: each time a track is matched to a detection, `hit_counter` increments; each missed frame decrements; it saturates at `hit_counter_max`. A track becomes “confirmed/active” only once `hit_counter` reaches `initialization_delay`. This is not a strict sliding-window M-of-N, but it behaves similarly in the way we care about—evidence accumulates and occasional misses don’t hard-reset confidence—which is exactly what we want for low-confidence small-object detections (see the [Norfair Tracker reference](https://tryolabs.github.io/norfair/dev/reference/tracker/) and the [Norfair 2.0 announcement](https://tryolabs.com/blog/2022/09/20/announcing-norfair-2.0-open-source-real-time-multi-object-tracking-library)).
+
+If you want the broader “integrate weak measurements over time” framing (beyond just track confirmation), see [Track-before-detect](https://en.wikipedia.org/wiki/Track-before-detect).
+
+
+### 8.3 After lock
 - Tiling is disabled.
 - Tracking becomes the timeline owner (state evolution in **e**).
 - DNN becomes secondary:
