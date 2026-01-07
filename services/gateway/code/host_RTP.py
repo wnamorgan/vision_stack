@@ -13,7 +13,6 @@ import zmq
 import logging
 
 # ---- defaults ----
-FPS = 120 #TODO - get rid of codes dependency on FPS
 W = int(os.getenv("RTP_WIDTH", 1280))
 H = int(os.getenv("RTP_HEIGHT", 720))
 Q = 80  # jpeg quality
@@ -66,19 +65,18 @@ class HostRTP:
             self.sub_socket.close()
             self.context.term()
 
-    def setup_pipeline(self, port: int = RTP_PORT, dst_ip: str = RTP_DST_IP, fps: int = FPS):
+    def setup_pipeline(self, port: int = RTP_PORT, dst_ip: str = RTP_DST_IP):
         self.port   = port
         self.dst_ip = dst_ip
-        self.fps    = fps
 
-        
         pipeline_str = (
             f"appsrc name=src is-live=true block=false format=time do-timestamp=true "
-            f"caps=image/jpeg,width={W},height={H},framerate={fps}/1 ! "
+            f"caps=image/jpeg,width={W},height={H} ! "
             f"rtpjpegpay pt=26 ! "
             f"udpsink host={dst_ip} port={port} sync=false async=false"
         )
-    
+
+
         self.pipeline = Gst.parse_launch(pipeline_str)
         self.appsrc   = self.pipeline.get_by_name("src")
         self.pipeline.set_state(Gst.State.PLAYING)
@@ -130,9 +128,6 @@ class HostRTP:
             buf = Gst.Buffer.new_allocate(None, len(data), None)
             buf.fill(0, data)
             
-            # optional-but-safe: stamp timing from your loop count (prevents weird pacing)
-            buf.pts = Gst.util_uint64_scale(count, Gst.SECOND, FPS)
-            buf.duration = Gst.util_uint64_scale(1, Gst.SECOND, FPS)
             
             flow = self.appsrc.emit("push-buffer", buf)
             if flow != Gst.FlowReturn.OK:
