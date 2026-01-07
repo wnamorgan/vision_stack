@@ -57,7 +57,7 @@ class Camera:
         buf = self.shm.buf
     
         # ---- pixel buffer (STABLE OFFSET) ----
-        self.frame_buf = np.ndarray(
+        self.image_buf = np.ndarray(
             (self.max_height, self.max_width, self.channels),
             dtype=np.uint8,
             buffer=buf[:self.pixel_bytes],
@@ -88,25 +88,27 @@ class Camera:
         raise NotImplementedError("capture_frame() must be implemented in child class")
 
 
-    def write_frame_to_shared_memory(self, frame):
-        """Write the captured frame into shared memory. Use seq to detect tearing"""
-        h, w, c = frame.shape
+    def write_image_to_shared_memory(self, image):
+        """Write the captured image into shared memory. Use seq to detect tearing"""
+        h, w, c = image.shape
     
         self.seq[0] += 1              # write start (odd)
         self.meta[:] = (w, h, self.channels)
-        self.frame_buf[:h, :w, :c] = frame
+        self.image_buf[:h, :w, :c] = image
         self.seq[0] += 1              # write complete (even)
 
     def capture_frames(self):
         """Main loop to capture frames continuously, write to shared memory, and send ZeroMQ notifications."""
         while not self.exit_flag.is_set():  # Check the exit flag to stop the thread
-            ok, frame_bgr = self.capture_frame()  # Capture a frame (implementation in child class)
+            ok, frame = self.capture_frame()  # Capture a frame (implementation in child class)
+            image    = frame['image']
+            metadata = frame['metadata']
             self.frame_id += 1
             if self.frame_id % 1000 == 0:
                 self.log.info(f"[Camera] Frame Count = {self.frame_id}")
-            if ok and frame_bgr is not None:
-                self.write_frame_to_shared_memory(frame_bgr)
-                self.send_frame_metadata(frame_bgr)
+            if ok and frame is not None:
+                self.write_image_to_shared_memory(image)
+                self.send_frame_metadata(metadata) 
 
     def start_capture(self):
         """Start the capture thread."""
@@ -127,16 +129,15 @@ class Camera:
         self.socket.close()
         self.context.term()
 
-    def send_frame_metadata(self, frame):
-        h, w, c = frame.shape
+    def send_frame_metadata(self, metadata):      
     
         self.frame_id_counter += 1
     
         msg = {
+            "type": "frame",
+            "source": "camera",            
             "shm_name": self.shm_name,
-            "width": w,
-            "height": h,
-            "channels": c,
+            "metadata": metadata,
             "frame_id": self.frame_id_counter,
         }
 

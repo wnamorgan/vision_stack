@@ -163,45 +163,52 @@ class HostRTP:
         print("\nGraceful exit initiated.")
         self.stop_event.set()
 
+    def enqueue_frame(self,msg):
+
+        self.shm_name = msg["shm_name"]
+        metadata      = msg["metadata"]
+        self.width    = metadata["w"]
+        self.height   = metadata["h"]
+        self.channels = metadata["c"]
+
+
+        # First frame: attach to SHM
+        if self.shm is None:
+            self.shm = shared_memory.SharedMemory(name=self.shm_name)
+            resource_tracker.unregister(self.shm._name, "shared_memory")
+            self.image_buf = np.ndarray(
+                (self.MAX_HEIGHT, self.MAX_WIDTH, self.channels),  # Use instance vars here
+                dtype=np.uint8,
+                buffer=self.shm.buf[: self.MAX_WIDTH * self.MAX_HEIGHT * self.channels]
+            )
+
+        # Read latest frame (copy semantics preserved)
+        image = self.image_buf[:self.height, :self.width, :self.channels].copy()
+        self.frame_id +=1
+        frame = (image,msg,self.frame_id)
+        if self.frame_id % 1000 == 0:
+            self.log.info(f"[RTP Rx] Frame Count = {self.frame_id}")  
+        # TEMP: feed into existing RTP path
+        try:
+            self.frame_queue.put_nowait(frame)
+        except queue.Full:
+            try:
+                self.frame_queue.get_nowait()
+            except queue.Empty:
+                pass
+            self.frame_queue.put_nowait(frame)
+
     def zmq_sub_loop(self):
 
-        
         while not self.stop_event.is_set():
             try:
                 msg = self.sub_socket.recv_json()
             except zmq.Again:
                 continue
 
-            self.width    = msg["width"]
-            self.height   = msg["height"]
-            self.channels = msg["channels"]
-            self.shm_name = msg["shm_name"]
+            if msg.get("type") == "frame":
+                self.enqueue_frame(msg)
 
-            # First frame: attach to SHM
-            if self.shm is None:
-                self.shm = shared_memory.SharedMemory(name=self.shm_name)
-                resource_tracker.unregister(self.shm._name, "shared_memory")
-                self.image_buf = np.ndarray(
-                    (self.MAX_HEIGHT, self.MAX_WIDTH, self.channels),  # Use instance vars here
-                    dtype=np.uint8,
-                    buffer=self.shm.buf[: self.MAX_WIDTH * self.MAX_HEIGHT * self.channels]
-                )
-
-            # Read latest frame (copy semantics preserved)
-            image = self.image_buf[:self.height, :self.width, :self.channels].copy()
-            self.frame_id +=1
-            frame = (image,msg,self.frame_id)
-            if self.frame_id % 1000 == 0:
-                self.log.info(f"[RTP Rx] Frame Count = {self.frame_id}")  
-            # TEMP: feed into existing RTP path
-            try:
-                self.frame_queue.put_nowait(frame)
-            except queue.Full:
-                try:
-                    self.frame_queue.get_nowait()
-                except queue.Empty:
-                    pass
-                self.frame_queue.put_nowait(frame)
 
 
     def tx_rate_loop(self):
@@ -228,6 +235,7 @@ class HostRTP:
         if (ip, port) in self.rtp_sinks:
             self.log.info("RTP sink %s:%d already exists, ignoring", ip, port)
             return
+        self.log.info("Adding RTP sink %s:%d", ip, port)
         pipeline_str = (
             f"appsrc name=src is-live=true block=false format=time do-timestamp=true "
             f"caps=image/jpeg,width={W},height={H} ! "

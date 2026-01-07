@@ -34,9 +34,12 @@ class USB_Camera(Camera):
 
     def capture_frame(self):
         """Capture a frame from the USB camera."""
-        ok, frame_bgr = self.cap.read()
-        if ok and frame_bgr is not None:
-            return ok, frame_bgr  # Ensure this is a tuple with exactly two elements
+        ok, image_bgr = self.cap.read()
+        h, w, c = image_bgr.shape
+        metadata = {'h': h, 'w': w, 'c': c}
+        frame = {'image': image_bgr, 'metadata': metadata}
+        if ok and frame is not None:
+            return ok, frame  # Ensure this is a tuple with exactly two elements
         return False, None  # If something goes wrong, return False and None
     
     
