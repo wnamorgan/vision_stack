@@ -10,9 +10,59 @@
 <body>
   <img id="video_main" src="/frame.jpg" />
   <script>
-    const FRAME_POLL_MS = 33; // ~30Hz
+    const FRAME_POLL_MS = 33;          // keep your current pull rate for now
+    const CONTROL_API_PORT = 8100;     // where api_process runs
     const img = document.getElementById("video_main");
+    const host = window.location.hostname;
+    const controlBase = `http://${host}:${CONTROL_API_PORT}`;
+
+    // existing refresh
     setInterval(() => { img.src = "/frame.jpg?t=" + Date.now(); }, FRAME_POLL_MS);
+
+    // accurate mapping for object-fit: contain (accounts for letterboxing)
+    function clickToImagePixels(e) {
+      const r = img.getBoundingClientRect();
+      const nw = img.naturalWidth, nh = img.naturalHeight;
+      if (!nw || !nh) return null;
+
+      const scale = Math.min(r.width / nw, r.height / nh);
+      const drawnW = nw * scale;
+      const drawnH = nh * scale;
+      const offX = (r.width  - drawnW) / 2;
+      const offY = (r.height - drawnH) / 2;
+
+      const xIn = (e.clientX - r.left) - offX;
+      const yIn = (e.clientY - r.top)  - offY;
+
+      if (xIn < 0 || yIn < 0 || xIn > drawnW || yIn > drawnH) return null;
+
+      const xPx = xIn / scale;
+      const yPx = yIn / scale;
+
+      return {
+        x_px: Math.round(xPx),
+        y_px: Math.round(yPx),
+        x_n: xPx / nw,
+        y_n: yPx / nh,
+      };
+    }
+
+    img.addEventListener("click", async (e) => {
+      const p = clickToImagePixels(e);
+      if (!p) return;
+
+      const payload = {
+        image_id: img.id,
+        frame_id: -1,   // placeholder until Task 4
+        ...p
+      };
+
+      await fetch(`${controlBase}/control/pixel_click`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(payload),
+      });
+    });
   </script>
 </body>
 </html>
