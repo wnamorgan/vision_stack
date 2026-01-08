@@ -18,17 +18,6 @@ class HelloReq(BaseModel):
     value: Optional[int] = 1
 
 
-# import socket
-# def get_local_ip():
-#     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-#     try:
-#         s.connect(("8.8.8.8", 80))  # no packets sent
-#         ip = s.getsockname()[0]
-#     finally:
-#         s.close()
-#     return ip
-
-
 import psutil
 import socket
 

@@ -17,38 +17,6 @@ VIDEO_HTTP_PORT = int(os.getenv("VIDEO_HTTP_PORT", "8000"))
 latest_jpeg = None
 lock = threading.Lock()
 
-# def gst_loop():
-#     global latest_jpeg
-#     Gst.init(None)
-
-#     pipeline = Gst.parse_launch(
-#         f"udpsrc port={RTP_PORT} caps=application/x-rtp,media=video,encoding-name=JPEG,payload=26 ! "
-#         f"rtpjpegdepay ! jpegdec ! videoconvert ! video/x-raw,format=BGR ! appsink name=sink"
-#     )
-#     sink = pipeline.get_by_name("sink")
-#     pipeline.set_state(Gst.State.PLAYING)
-
-#     while True:
-#         sample = sink.emit("try-pull-sample", 1_000_000_000)
-#         if not sample:
-#             continue
-
-#         buf = sample.get_buffer()
-#         caps = sample.get_caps().get_structure(0)
-#         w, h = caps.get_value("width"), caps.get_value("height")
-
-#         ok, mapinfo = buf.map(Gst.MapFlags.READ)
-#         if not ok:
-#             continue
-
-#         frame = np.frombuffer(mapinfo.data, np.uint8).reshape(h, w, 3).copy()
-#         buf.unmap(mapinfo)
-
-#         ok, jpg = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
-#         if ok:
-#             with lock:
-#                 latest_jpeg = jpg.tobytes()
-
 
 def gst_loop():
     global latest_jpeg
@@ -95,9 +63,9 @@ def run():
 
     app = FastAPI()
 
-    @app.get("/")
-    def index():
-        return FileResponse("static/index.html")
+    @app.get("/video_panel")
+    def video_panel():
+        return FileResponse("static/video_panel.html")
     
     @app.get("/frame.jpg")
     def frame():
