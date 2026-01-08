@@ -44,6 +44,7 @@ services:
       # REMOTE: switch to macvlan LAN (unicast preferred; .255 broadcast optional)
       # RTP_DST_IP: 192.168.1.33
       # RTP_DST_IP: 192.168.1.33 # Nano IP
+      # RTP_DST_IP: 172.30.10.3
       # RTP_PORT: 5004
       # RTP_DST_IP: 192.168.1.<remote_receiver>
       # RTP_PORT: 5004
