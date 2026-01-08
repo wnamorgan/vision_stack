@@ -49,35 +49,18 @@ def run():
     sock = ctx.socket(zmq.PUSH)
     sock.bind(ZMQ_PUSH)    
 
-
-    # TODO Move this send_json to make it connect to a dash button
-    # one-time RTP subscribe on API startup
-    import time
-    time.sleep(10)
-    gcs_ip = get_local_ip()
-    # log = logging.getLogger("api")
-    # logging.basicConfig(level=logging.INFO)
-    # log.info(f"[api processing] ip address= {gcs_ip}")
-    rtp_port = int(os.getenv("RTP_PORT", "5004"))
-    sock.send_json({
-        "type": "RTP_SUBSCRIBE",
-        "value": {
-            "ip": gcs_ip,
-            "port": rtp_port
-        }
-    })
-
     app = FastAPI()
 
-    @app.post("/control/hello")
+    @app.post("/control/stream_subscribe")
     def hello(req: HelloReq):
-        print("[API] sending intent to ZMQ")
-
         log = logging.getLogger("api")
         logging.basicConfig(level=logging.INFO)
         log.info("[API] handler entered")        
-        intent = ControlIntent(type="HELLO", value=req.value)
+        intent = ControlIntent(type="Subscribing to Stream", value=req.value)
+        gcs_ip = get_local_ip()
+        rtp_port = int(os.getenv("RTP_PORT", "5004"))
+        intent = ControlIntent(type="RTP_SUBSCRIBE", value={"ip": gcs_ip, "port": rtp_port})
         sock.send_json(intent.normalize())
-        return {"status": "sent"}
+        return {"status": "sent", "ip": gcs_ip, "port": rtp_port}
 
     uvicorn.run(app, host="0.0.0.0", port=CONTROL_API_PORT)
