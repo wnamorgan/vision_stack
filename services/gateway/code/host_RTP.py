@@ -17,6 +17,7 @@ W = int(os.getenv("RTP_WIDTH", 1280))
 H = int(os.getenv("RTP_HEIGHT", 720))
 Q = 80  # jpeg quality
 ZMQ_SUB_ENDPOINT = os.getenv("ZMQ_SUB_ENDPOINT", "tcp://localhost:5555")
+ZMQ_FRAME_META_PUB = os.getenv("ZMQ_FRAME_META_PUB", "tcp://*:5562") 
 RTP_PORT = int(os.getenv("RTP_PORT", "5004"))
 RTP_DST_IP = os.getenv("RTP_DST_IP", "127.0.0.1")
 
@@ -35,7 +36,14 @@ class HostRTP:
         self.sub_socket = self.context.socket(zmq.SUB)
         self.sub_socket.connect(ZMQ_SUB_ENDPOINT)
         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "")
-        self.sub_socket.RCVTIMEO = 200
+        self.sub_socket.RCVTIMEO = 200 
+
+        # Side-channel publisher (frame metadata)
+        self.meta_pub = self.context.socket(zmq.PUB)
+        self.meta_pub.setsockopt(zmq.SNDHWM, 1)   # keep only latest if congested
+        self.meta_pub.setsockopt(zmq.LINGER, 0)
+        self.meta_pub.bind(ZMQ_FRAME_META_PUB)
+
         self.log = logging.getLogger("RTP Rx")
         logging.basicConfig(level=logging.INFO)
         self.frame_id = 0 
@@ -73,6 +81,7 @@ class HostRTP:
                 self.shm.close()
             
             self.sub_socket.close()
+            self.meta_pub.close()
             self.context.term()
 
     def setup_pipeline(self, port: int = RTP_PORT, dst_ip: str = RTP_DST_IP):
@@ -109,6 +118,16 @@ class HostRTP:
                 frame = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGBA)
             else:
                 frame = frame_bgr
+
+
+            # Side-channel: publish frame_id (Task 4 will extend this to include full msg)
+            try:
+                self.meta_pub.send_json(
+                    {"type":"FRAME_META", "value": msg["metadata"]},
+                    flags=zmq.NOBLOCK
+                )
+            except zmq.Again:
+                pass
 
 
             # Send Frames
