@@ -45,6 +45,9 @@ RUN pip install --no-cache-dir \
     requests \
     pydantic 
 
+RUN pip install --no-cache-dir \
+    psutil
+
 WORKDIR /app
 
 COPY . /app

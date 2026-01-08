@@ -18,15 +18,30 @@ class HelloReq(BaseModel):
     value: Optional[int] = 1
 
 
+# import socket
+# def get_local_ip():
+#     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+#     try:
+#         s.connect(("8.8.8.8", 80))  # no packets sent
+#         ip = s.getsockname()[0]
+#     finally:
+#         s.close()
+#     return ip
+
+
+import psutil
 import socket
-def get_local_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(("8.8.8.8", 80))  # no packets sent
-        ip = s.getsockname()[0]
-    finally:
-        s.close()
-    return ip
+
+
+def get_local_ip(subnet_prefix="192.168.1."):
+    for iface, addrs in psutil.net_if_addrs().items():
+        for addr in addrs:
+            if addr.family == socket.AF_INET:
+                ip = addr.address
+                if ip.startswith(subnet_prefix):
+                    return ip
+
+    raise RuntimeError(f"No IPv4 address found on subnet {subnet_prefix}x")
 
 
 def run():
@@ -40,6 +55,9 @@ def run():
     import time
     time.sleep(10)
     gcs_ip = get_local_ip()
+    # log = logging.getLogger("api")
+    # logging.basicConfig(level=logging.INFO)
+    # log.info(f"[api processing] ip address= {gcs_ip}")
     rtp_port = int(os.getenv("RTP_PORT", "5004"))
     sock.send_json({
         "type": "RTP_SUBSCRIBE",
