@@ -51,11 +51,16 @@
       const p = clickToImagePixels(e);
       if (!p) return;
 
-      const payload = {
-        image_id: img.id,
-        frame_id: -1,   // placeholder until Task 4
-        ...p
-      };
+      let frame_id = -1;
+      try {
+        const r = await fetch(`${controlBase}/frame_meta`);
+        if (r.ok) {
+          const md = await r.json();
+          if (md && typeof md.frame_id === "number") frame_id = md.frame_id;
+        }
+      } catch (_) {}
+
+      const payload = { image_id: img.id, frame_id, ...p };
 
       await fetch(`${controlBase}/control/pixel_click`, {
         method: "POST",

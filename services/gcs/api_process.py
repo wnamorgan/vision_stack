@@ -2,10 +2,11 @@ import os
 import socket
 import logging
 from typing import Optional, Dict, Any
-
+import threading
 import zmq
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
 import uvicorn
 
@@ -16,7 +17,10 @@ log = logging.getLogger("api")
 
 CONTROL_API_PORT = int(os.getenv("CONTROL_API_PORT", "8100"))
 ZMQ_PUSH = os.getenv("ZMQ_CONTROL")  # e.g. "tcp://*:5559" (GCS side PUSH bind)
+ZMQ_META_SUB = os.getenv("ZMQ_META_SUB", "tcp://127.0.0.1:5570")  # from gcs/udp_rx_process.py
 
+_latest_meta: Optional[Dict[str, Any]] = None
+_meta_lock = threading.Lock()
 
 def get_local_ip() -> str:
     """
@@ -83,6 +87,34 @@ def run() -> None:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+
+    # ---- Meta cache: SUB from ZMQ (produced by udp_rx_process) ----
+    def _meta_sub_loop():
+        zctx = zmq.Context()
+        sub = zctx.socket(zmq.SUB)
+        sub.connect(ZMQ_META_SUB)
+        sub.setsockopt_string(zmq.SUBSCRIBE, "")
+        log.info(f"[API] ZMQ META SUB connected to {ZMQ_META_SUB}")
+        while True:
+            msg = sub.recv_json()
+            if msg.get("type") != "FRAME_META":
+                continue
+            md = msg.get("value")
+            if not isinstance(md, dict):
+                continue
+            global _latest_meta
+            with _meta_lock:
+                _latest_meta = md
+
+    threading.Thread(target=_meta_sub_loop, daemon=True).start()
+
+    @app.get("/frame_meta")
+    def frame_meta():
+        with _meta_lock:
+            if _latest_meta is None:
+                return Response(status_code=204)
+            return _latest_meta
 
     @app.post("/control/hello")
     def hello(req: HelloReq):

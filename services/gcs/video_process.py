@@ -65,13 +65,28 @@ def run():
 
     @app.get("/video_panel")
     def video_panel():
-        return FileResponse("static/video_panel.html")
+        # Prevent stale panel HTML/CSS/JS; always fetch fresh from server
+        return FileResponse(
+            "static/video_panel.html",
+            headers={
+                "Cache-Control": "no-store, must-revalidate",
+                "Pragma": "no-cache",
+            },
+        )
     
     @app.get("/frame.jpg")
     def frame():
         with lock:
             if latest_jpeg is None:
                 return Response(status_code=204)
-            return Response(latest_jpeg, media_type="image/jpeg")
+            # Explicitly disable caching in case a proxy ignores the query param trick
+            return Response(
+                latest_jpeg,
+                media_type="image/jpeg",
+                headers={
+                    "Cache-Control": "no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                },
+            )
 
     uvicorn.run(app, host="0.0.0.0", port=VIDEO_HTTP_PORT, access_log=False)
