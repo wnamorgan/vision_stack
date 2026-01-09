@@ -1,6 +1,6 @@
 import dash
-from dash import html
-from dash.dependencies import Input, Output
+from dash import html, dcc
+from dash.dependencies import Input, Output, State
 import requests
 import os
 
@@ -39,8 +39,18 @@ def run():
 
                     html.Hr(),
 
-                    html.Button("Send HELLO", id="hello_btn"),
-                    html.Div(id="hello_status", style={"marginTop": "10px"}),
+                    html.H4("Video Controls"),
+                    html.Div("JPEG Quality"),
+                    dcc.Slider(
+                        id="jpeg_quality",
+                        min=10,
+                        max=95,
+                        step=1,
+                        value=80,
+                        tooltip={"placement": "bottom", "always_visible": True},
+                    ),
+                    html.Button("Apply JPEG Quality", id="set_jpeg_quality_btn", style={"marginTop": "10px"}),
+                    html.Div(id="jpeg_quality_status", style={"marginTop": "10px"}),
                 ],
                 style={"width": "34%", "display": "inline-block", "verticalAlign": "top", "padding": "10px"},
             ),
@@ -68,13 +78,17 @@ def run():
         )
         return r.json()
 
-    @app.callback(Output("hello_status", "children"), Input("hello_btn", "n_clicks"))
-    def hello(n):
+    @app.callback(
+        Output("jpeg_quality_status", "children"),
+        Input("set_jpeg_quality_btn", "n_clicks"),
+        State("jpeg_quality", "value"),
+    )
+    def set_quality(n, q):
         if not n:
             return ""
         r = requests.post(
-            f"http://127.0.0.1:{CONTROL_API_PORT}/control/hello",
-            json={"value": n},
+            f"http://127.0.0.1:{CONTROL_API_PORT}/control/jpeg_quality",
+            json={"quality": int(q)},
             timeout=2.0,
         )
         return r.json()

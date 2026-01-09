@@ -20,6 +20,7 @@ ZMQ_SUB_ENDPOINT = os.getenv("ZMQ_SUB_ENDPOINT", "tcp://localhost:5555")
 ZMQ_FRAME_META_PUB = os.getenv("ZMQ_FRAME_META_PUB", "tcp://*:5562") 
 RTP_PORT = int(os.getenv("RTP_PORT", "5004"))
 RTP_DST_IP = os.getenv("RTP_DST_IP", "127.0.0.1")
+Q_DEFAULT = int(os.getenv("RTP_JPEG_QUALITY", "80"))
 
 class HostRTP:
     def __init__(self):
@@ -51,6 +52,14 @@ class HostRTP:
         self.rtp_sinks = {}
         self._add_rtp_sink(RTP_DST_IP, RTP_PORT)
 
+        self.jpeg_quality = Q_DEFAULT
+        self._q_lock = threading.Lock() 
+
+    def set_jpeg_quality(self, q: int):
+        # clamp to sensible JPEG range
+        q = max(10, min(95, int(q)))
+        with self._q_lock:
+            self.jpeg_quality = q
 
     def run(self):
 
@@ -148,7 +157,11 @@ class HostRTP:
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0,
                     (255, 255, 255), 2, cv2.LINE_AA
                 )
-            ok, jpg = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), Q])
+
+            with self._q_lock:
+                q = self.jpeg_quality
+            ok, jpg = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), int(q)])
+
             if not ok: continue
             data = jpg.tobytes()
         

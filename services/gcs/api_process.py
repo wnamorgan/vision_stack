@@ -57,6 +57,8 @@ def get_local_ip() -> str:
 class HelloReq(BaseModel):
     value: Optional[int] = 1
 
+class JpegQualityReq(BaseModel):
+    quality: int
 
 class PixelClickReq(BaseModel):
     image_id: str = "video_main"
@@ -116,12 +118,6 @@ def run() -> None:
                 return Response(status_code=204)
             return _latest_meta
 
-    @app.post("/control/hello")
-    def hello(req: HelloReq):
-        intent = ControlIntent(type="HELLO", value=req.value)
-        sock.send_json(intent.normalize())
-        return {"status": "sent"}
-
     @app.post("/control/stream_subscribe")
     def stream_subscribe(req: HelloReq):
         gcs_ip = get_local_ip()
@@ -136,6 +132,14 @@ def run() -> None:
         intent = ControlIntent(type="PIXEL_CLICK", value=payload)
         sock.send_json(intent.normalize())
         return {"status": "sent", **payload}
+
+
+    @app.post("/control/jpeg_quality")
+    def jpeg_quality(req: JpegQualityReq):
+        q = int(req.quality)
+        intent = ControlIntent(type="RTP_SET_QUALITY", value={"quality": q})
+        sock.send_json(intent.normalize())
+        return {"status": "sent", "quality": q}
 
     uvicorn.run(app, host="0.0.0.0", port=CONTROL_API_PORT)
 

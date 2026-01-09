@@ -32,3 +32,9 @@ def run():
                 "port": int(intent["value"]["port"]),
             }
             pub.send_json(cmd)
+        elif intent.get("type") == "RTP_SET_QUALITY":
+            cmd = {
+                "type": "RTP_SET_QUALITY",
+                "quality": int(intent["value"]["quality"]),
+            }
+            pub.send_json(cmd)
