@@ -10,17 +10,19 @@
 <body>
   <img id="video_main" src="/frame.jpg" />
   <script>
-    const FRAME_POLL_MS = 33;          // keep your current pull rate for now
-    // const CONTROL_API_PORT = 8100;     // where api_process runs
     const img = document.getElementById("video_main");
     const host = window.location.hostname;
-    // const controlBase = `http://${host}:${CONTROL_API_PORT}`;
     const params = new URLSearchParams(window.location.search);
+
     const controlPort = Number(params.get("control_port") );
     const controlBase = `http://${host}:${controlPort}`;
-    // existing refresh
-    setInterval(() => { img.src = "/frame.jpg?t=" + Date.now(); }, FRAME_POLL_MS);
 
+    const pollHz = Number(params.get("poll_hz") || "30");
+    const pollMs = Math.max(5, Math.round(1000 / pollHz));
+
+    // existing refresh
+    setInterval(() => { img.src = "/frame.jpg?t=" + Date.now(); }, pollMs);
+    
     // accurate mapping for object-fit: contain (accounts for letterboxing)
     function clickToImagePixels(e) {
       const r = img.getBoundingClientRect();

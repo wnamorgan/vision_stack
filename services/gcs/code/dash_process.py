@@ -1,6 +1,6 @@
 import os
 import requests
-
+import logging
 import dash
 from dash import html, dcc
 from dash.dependencies import Input, Output, State
@@ -19,6 +19,7 @@ DEFAULT_H = int(os.getenv("RTP_HEIGHT", "720"))
 
 def run():
     app = dash.Dash(__name__)
+    logging.getLogger("werkzeug").disabled = True
 
     # --- styling (dark, clean) ---
     panel_style = {
@@ -126,7 +127,7 @@ def run():
                 children=[
                     html.Iframe(
                         id="video_iframe",
-                        src=f"{VIDEO_BASE_URL}/video_panel?control_port={CONTROL_API_PORT}",
+                        src=f"{VIDEO_BASE_URL}/video_panel?control_port={CONTROL_API_PORT}&poll_hz=30",
                         style={"width": "100%", "height": "100vh", "border": "0"},
                     )
                 ],
@@ -162,27 +163,31 @@ def run():
 
     @app.callback(
         Output("apply_status", "children"),
+        Output("video_iframe", "src"),
         Input("apply_video_btn", "n_clicks"),
         State("s_scale", "value"),
         State("s_fps", "value"),
         State("s_q", "value"),
+        prevent_initial_call=True,
     )
     def apply(n, s_scale, s_fps, s_q):
         if not n:
-            return ""
-
-        # Layout-first: for now, only quality is plumbed (already works).
-        # We'll add fps/scale plumbing in the next step.
+            return "", dash.no_update
         scale = 0.1 + 0.9 * float(s_scale)
-        fps = int(round(5 + (30 - 5) * float(s_fps)))
-        q = int(round(10 + (95 - 10) * float(s_q)))
+        w = int(DEFAULT_W * scale)
+        h = int(DEFAULT_H * scale)
+        fps = int(round(5 + (30 - 5) * float(s_fps)))   # 5..30
+        q = int(round(10 + (95 - 10) * float(s_q)))     # 10..95
 
+        payload = {"scale": round(scale, 6), "w": w, "h": h, "fps": fps, "quality": q}
         r = requests.post(
-            f"http://127.0.0.1:{CONTROL_API_PORT}/control/jpeg_quality",
-            json={"quality": int(q)},
+            f"http://127.0.0.1:{CONTROL_API_PORT}/control/video_settings",
+            json=payload,
             timeout=2.0,
         )
-        return {"applied": {"q": q}, "staged": {"scale": round(scale, 3), "fps": fps}, "api": r.json()}
+
+        iframe_src = f"{VIDEO_BASE_URL}/video_panel?control_port={CONTROL_API_PORT}&poll_hz={fps}"
+        return {"sent": payload, "api": r.json()}, iframe_src
 
     app.run(host="0.0.0.0", port=DASH_PORT)
 

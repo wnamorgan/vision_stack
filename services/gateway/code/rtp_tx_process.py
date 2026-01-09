@@ -18,10 +18,9 @@ def rtp_tx_process():
         while True:
             msg = sub.recv_json()
             if msg.get("type") == "RTP_ADD_SINK":
-                host._add_rtp_sink(msg["ip"], msg["port"])
-            elif msg.get("type") == "RTP_SET_QUALITY":
-                host.set_jpeg_quality(int(msg["quality"]))                
-
+                host._add_rtp_sink(msg["ip"], msg["port"])             
+            elif msg.get("type") == "RTP_SET_PARAMS":
+                host.apply_rtp_params(msg.get("value", {}))
     threading.Thread(target=control_loop, daemon=True).start()
 
 

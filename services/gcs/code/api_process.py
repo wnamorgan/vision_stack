@@ -57,7 +57,11 @@ def get_local_ip() -> str:
 class HelloReq(BaseModel):
     value: Optional[int] = 1
 
-class JpegQualityReq(BaseModel):
+class VideoSettingsReq(BaseModel):
+    scale: float
+    w: int
+    h: int
+    fps: int
     quality: int
 
 class PixelClickReq(BaseModel):
@@ -134,12 +138,21 @@ def run() -> None:
         return {"status": "sent", **payload}
 
 
-    @app.post("/control/jpeg_quality")
-    def jpeg_quality(req: JpegQualityReq):
-        q = int(req.quality)
-        intent = ControlIntent(type="RTP_SET_QUALITY", value={"quality": q})
+    @app.post("/control/video_settings")
+    def video_settings(req: VideoSettingsReq):
+        # clamp/sanitize (keep it simple)
+        q = max(10, min(95, int(req.quality)))
+        fps = max(1, min(120, int(req.fps)))
+        w = max(64, int(req.w))
+        h = max(64, int(req.h))
+        scale = float(req.scale)
+
+        intent = ControlIntent(
+            type="RTP_SET_PARAMS",
+            value={"scale": scale, "w": w, "h": h, "fps": fps, "quality": q},
+        )
         sock.send_json(intent.normalize())
-        return {"status": "sent", "quality": q}
+        return {"status": "sent", "value": intent.normalize()["value"]}
 
     uvicorn.run(app, host="0.0.0.0", port=CONTROL_API_PORT)
 
