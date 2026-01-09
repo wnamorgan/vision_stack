@@ -103,6 +103,7 @@ class Camera:
             ok, frame = self.capture_frame()  # Capture a frame (implementation in child class)
             image    = frame['image']
             metadata = frame['metadata']
+            metadata['frame_id'] = self.frame_id
             self.frame_id += 1
             if self.frame_id % 1000 == 0:
                 self.log.info(f"[Camera] Frame Count = {self.frame_id}")
