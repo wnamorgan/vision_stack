@@ -15,7 +15,7 @@ from control_schema import ControlIntent
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("api")
 
-CONTROL_API_PORT = int(os.getenv("CONTROL_API_PORT", "8100"))
+CONTROL_API_PORT = int(os.getenv("CONTROL_API_PORT"))
 ZMQ_PUSH = os.getenv("ZMQ_CONTROL")  # e.g. "tcp://*:5559" (GCS side PUSH bind)
 ZMQ_META_SUB = os.getenv("ZMQ_META_SUB", "tcp://127.0.0.1:5570")  # from gcs/udp_rx_process.py
 

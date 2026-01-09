@@ -4,7 +4,7 @@ from dash.dependencies import Input, Output
 import requests
 import os
 
-CONTROL_API_PORT = int(os.getenv("CONTROL_API_PORT", "8100"))
+CONTROL_API_PORT = int(os.getenv("CONTROL_API_PORT"))
 DASH_PORT = int(os.getenv("DASH_PORT", "8080"))
 VIDEO_BASE_URL = os.getenv("VIDEO_BASE_URL", "http://127.0.0.1:8000")
 
@@ -18,7 +18,7 @@ from dash import html
 from dash.dependencies import Input, Output
 
 
-CONTROL_API_PORT = int(os.getenv("CONTROL_API_PORT", "8100"))
+CONTROL_API_PORT = int(os.getenv("CONTROL_API_PORT"))
 DASH_PORT = int(os.getenv("DASH_PORT", "8081"))
 
 # IMPORTANT: This must be reachable by the *browser*, not just the Dash container.
@@ -48,7 +48,7 @@ def run():
                 [
                     html.Iframe(
                         id="video_iframe",
-                        src=f"{VIDEO_BASE_URL}/video_panel",
+                        src=f"{VIDEO_BASE_URL}/video_panel?control_port={CONTROL_API_PORT}",
                         style={"width": "100%", "height": "90vh", "border": "0"},
                     )
                 ],
