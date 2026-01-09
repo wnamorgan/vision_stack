@@ -10,7 +10,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 import uvicorn
 
-from control_schema import ControlIntent
+from .control_schema import ControlIntent
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("api")

@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.responses import Response
 import uvicorn
 from fastapi.responses import FileResponse
-
+from pathlib import Path
 import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst
@@ -63,11 +63,14 @@ def run():
 
     app = FastAPI()
 
+    # Static assets live beside /app/code (default /app/static)
+    STATIC_DIR = Path(os.getenv("STATIC_DIR", "/app/static"))
+
     @app.get("/video_panel")
     def video_panel():
         # Prevent stale panel HTML/CSS/JS; always fetch fresh from server
         return FileResponse(
-            "static/video_panel.html",
+            str(STATIC_DIR / "video_panel.html"),
             headers={
                 "Cache-Control": "no-store, must-revalidate",
                 "Pragma": "no-cache",

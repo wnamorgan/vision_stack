@@ -64,7 +64,11 @@ services:
       context: ./services/gcs
     restart: unless-stopped
     volumes:
-      - ./services/gcs:/app
+      - ./services/gcs/app:/app
+      - ./services/gcs/code:/app/code
+      - ./services/gcs/static:/app/static
+    environment:
+      STATIC_DIR: /app/static      
     env_file:
       - ./services/gcs/.env
     networks:
