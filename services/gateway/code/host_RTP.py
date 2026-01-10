@@ -23,7 +23,7 @@ DEFAULT_Q = int(os.getenv("RTP_QUALITY", os.getenv("RTP_JPEG_QUALITY", "80")))
 DEFAULT_F = float(os.getenv("RTP_TX_HZ", "30"))
 
 
-ZMQ_RTP_USAGE_PUB  = f"tcp://*:{int(os.getenv("ZMQ_RTP_USAGE_PORT"))}"
+ZMQ_RTP_USAGE_PUB  = f"tcp://*:{int(os.getenv('ZMQ_RTP_USAGE_PORT'))}"
 
 ZMQ_SUB_ENDPOINT = os.getenv("ZMQ_SUB_ENDPOINT", "tcp://localhost:5555")
 ZMQ_FRAME_META_PUB = os.getenv("ZMQ_FRAME_META_PUB", "tcp://*:5562")

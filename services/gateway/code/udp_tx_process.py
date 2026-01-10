@@ -5,7 +5,7 @@ import time
 ZMQ_META_SUB = os.getenv("ZMQ_META_SUB", "tcp://localhost:5562")
 ZMQ_INTERNAL_SUB = os.getenv("ZMQ_INTERNAL_SUB", "tcp://localhost:5561")
 META_UDP_PORT = int(os.getenv("META_UDP_PORT", "9100"))
-ZMQ_RTP_USAGE_SUB = f"tcp://localhost:{int(os.getenv("ZMQ_RTP_USAGE_PORT"))}"
+ZMQ_RTP_USAGE_SUB = f"tcp://localhost:{int(os.getenv('ZMQ_RTP_USAGE_PORT'))}"
 LINK_USAGE_HZ = float(os.getenv("LINK_USAGE_HZ", "1"))
 
 logging.basicConfig(level=logging.INFO)
