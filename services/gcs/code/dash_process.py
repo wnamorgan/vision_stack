@@ -114,6 +114,14 @@ def run():
                             html.Div(id="apply_status", style={"marginTop": "10px", **mono_style}),
                         ],
                     ),
+                     html.Div(
+                         style=card_style,
+                         children=[
+                             html.Div("Link Usage", style={"fontWeight": "650", "marginBottom": "8px"}),
+                             dcc.Interval(id="link_tick", interval=1000, n_intervals=0),
+                             html.Div(id="link_usage", style={**mono_style}),
+                         ],
+                     ),                    
                 ],
             ),
             # RIGHT: video (fixed display size; transmitted resolution can change independently)
@@ -170,6 +178,26 @@ def run():
         State("s_q", "value"),
         prevent_initial_call=True,
     )
+
+    @app.callback(Output("link_usage", "children"), Input("link_tick", "n_intervals"))
+    def show_link(_n):
+        try:
+            r = requests.get(f"http://127.0.0.1:{CONTROL_API_PORT}/link_usage", timeout=0.5)
+            if r.status_code == 204:
+                return ""
+            if r.status_code != 200:
+                return f"link_usage: HTTP {r.status_code}"
+            v = r.json()
+        except Exception as e:
+            return f"link_usage: {e}"
+   
+        # Keep formatting stable/compact
+        return (
+            f"RTP: {v.get('rtp_bps', 0)} bps  "
+            f"(sinks {v.get('rtp_sinks_ok', 0)}/{v.get('rtp_sinks_total', 0)})\n"
+            f"UDP: {v.get('udp_bps', 0)} bps"
+        )
+
     def apply(n, s_scale, s_fps, s_q):
         if not n:
             return "", dash.no_update

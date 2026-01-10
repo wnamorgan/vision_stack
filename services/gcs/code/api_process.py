@@ -22,6 +22,9 @@ ZMQ_META_SUB = os.getenv("ZMQ_META_SUB", "tcp://127.0.0.1:5570")  # from gcs/udp
 _latest_meta: Optional[Dict[str, Any]] = None
 _meta_lock = threading.Lock()
 
+_latest_link_usage: Optional[Dict[str, Any]] = None
+_link_lock = threading.Lock()
+
 def get_local_ip() -> str:
     """
     Best-effort local IP selection for the machine/container running this API.
@@ -104,14 +107,26 @@ def run() -> None:
         log.info(f"[API] ZMQ META SUB connected to {ZMQ_META_SUB}")
         while True:
             msg = sub.recv_json()
-            if msg.get("type") != "FRAME_META":
+
+            mtype = msg.get("type")
+            val = msg.get("value")
+            if not isinstance(val, dict):
                 continue
-            md = msg.get("value")
-            if not isinstance(md, dict):
+
+            if mtype == "FRAME_META":
+                global _latest_meta
+                with _meta_lock:
+                    _latest_meta = val
                 continue
-            global _latest_meta
-            with _meta_lock:
-                _latest_meta = md
+
+            if mtype == "LINK_USAGE":
+                global _latest_link_usage
+                with _link_lock:
+                    _latest_link_usage = val
+                # 1 Hz message: OK to log
+                log.info("[LINK] %s", val)
+                continue
+
 
     threading.Thread(target=_meta_sub_loop, daemon=True).start()
 
@@ -121,6 +136,13 @@ def run() -> None:
             if _latest_meta is None:
                 return Response(status_code=204)
             return _latest_meta
+
+    @app.get("/link_usage")
+    def link_usage():
+        with _link_lock:
+            if _latest_link_usage is None:
+                return Response(status_code=204)
+            return _latest_link_usage
 
     @app.post("/control/stream_subscribe")
     def stream_subscribe(req: HelloReq):

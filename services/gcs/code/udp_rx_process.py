@@ -71,7 +71,7 @@ def run():
     zmq_pub = os.getenv("ZMQ_PUB_ENDPOINT", "tcp://*:5570")
 
     # Multiple UDP ports supported
-    bindings = _parse_bindings(os.getenv("UDP_RX_BINDINGS", "meta:9100:FRAME_META"))
+    bindings = _parse_bindings(os.getenv("UDP_RX_BINDINGS", "platform:9100"))
 
     bind_host = os.getenv("UDP_RX_HOST", "0.0.0.0")
     max_dgram = int(os.getenv("UDP_RX_MAX_DGRAM", "65535"))
