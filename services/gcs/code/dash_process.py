@@ -85,10 +85,17 @@ def run():
                         style=card_style,
                         children=[
                             html.Div("Connection", style={"fontWeight": "650", "marginBottom": "8px"}),
-                            html.Button(
-                                "Stream Video",
-                                id="stream_btn",
-                                style={"padding": "10px 12px", "borderRadius": "10px"},
+                            dcc.Interval(id="link_tick", interval=1000, n_intervals=0),
+                            html.Div(
+                                style={"display": "flex", "gap": "10px", "alignItems": "center"},
+                                children=[
+                                    html.Button(
+                                        "Stream Video",
+                                        id="stream_btn",
+                                        style={"padding": "10px 12px", "borderRadius": "10px"},
+                                    ),
+                                    html.Div(id="link_usage", style={**mono_style, "margin": "0"}),
+                                ],
                             ),
                             html.Div(id="stream_status", style={"marginTop": "10px", **mono_style}),
                         ],
@@ -114,14 +121,6 @@ def run():
                             html.Div(id="apply_status", style={"marginTop": "10px", **mono_style}),
                         ],
                     ),
-                     html.Div(
-                         style=card_style,
-                         children=[
-                             html.Div("Link Usage", style={"fontWeight": "650", "marginBottom": "8px"}),
-                             dcc.Interval(id="link_tick", interval=1000, n_intervals=0),
-                             html.Div(id="link_usage", style={**mono_style}),
-                         ],
-                     ),                    
                 ],
             ),
             # RIGHT: video (fixed display size; transmitted resolution can change independently)
@@ -142,6 +141,7 @@ def run():
             ),
         ],
     )
+
 
     @app.callback(Output("stream_status", "children"), Input("stream_btn", "n_clicks"))
     def stream(n):
@@ -177,27 +177,7 @@ def run():
         State("s_fps", "value"),
         State("s_q", "value"),
         prevent_initial_call=True,
-    )
-
-    @app.callback(Output("link_usage", "children"), Input("link_tick", "n_intervals"))
-    def show_link(_n):
-        try:
-            r = requests.get(f"http://127.0.0.1:{CONTROL_API_PORT}/link_usage", timeout=0.5)
-            if r.status_code == 204:
-                return ""
-            if r.status_code != 200:
-                return f"link_usage: HTTP {r.status_code}"
-            v = r.json()
-        except Exception as e:
-            return f"link_usage: {e}"
-   
-        # Keep formatting stable/compact
-        return (
-            f"RTP: {v.get('rtp_bps', 0)} bps  "
-            f"(sinks {v.get('rtp_sinks_ok', 0)}/{v.get('rtp_sinks_total', 0)})\n"
-            f"UDP: {v.get('udp_bps', 0)} bps"
-        )
-
+    )     
     def apply(n, s_scale, s_fps, s_q):
         if not n:
             return "", dash.no_update
@@ -216,6 +196,28 @@ def run():
 
         iframe_src = f"{VIDEO_BASE_URL}/video_panel?control_port={CONTROL_API_PORT}&poll_hz={fps}"
         return {"sent": payload, "api": r.json()}, iframe_src
+
+
+    @app.callback(Output("link_usage", "children"), Input("link_tick", "n_intervals"))
+    def show_link(_n):
+        try:
+            r = requests.get(f"http://127.0.0.1:{CONTROL_API_PORT}/link_usage", timeout=0.5)
+            if r.status_code == 204:
+                return ""
+            if r.status_code != 200:
+                return f"link_usage: HTTP {r.status_code}"
+            v = r.json()
+        except Exception as e:
+            return f"link_usage: {e}"
+   
+        # Keep formatting stable/compact
+        rtp_bps = int(v.get("rtp_bps", 0) or 0)
+        udp_bps = int(v.get("udp_bps", 0) or 0)
+        rtp_mbps = rtp_bps / 1_000_000.0
+        udp_mbps = udp_bps / 1_000_000.0
+        ok = int(v.get("rtp_sinks_ok", 0) or 0)
+        total = int(v.get("rtp_sinks_total", 0) or 0)
+        return f"RTP {rtp_mbps:.1f} Mbps (sinks {ok}/{total}) | UDP {udp_mbps:.2f} Mbps"   
 
     app.run(host="0.0.0.0", port=DASH_PORT)
 
