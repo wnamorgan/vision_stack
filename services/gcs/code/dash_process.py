@@ -1,18 +1,29 @@
 import os
+from urllib.parse import urlencode
 import requests
 import logging
 import dash
 from dash import html, dcc
 from dash.dependencies import Input, Output, State
 
+# Internal ports (inside container / host-net)
+CONTROL_API_PORT = int(os.getenv("CONTROL_API_PORT", "8100"))
 
-CONTROL_API_PORT = int(os.getenv("CONTROL_API_PORT"))
+
+
 DASH_PORT = int(os.getenv("DASH_PORT", "8081"))
 
-# IMPORTANT: This must be reachable by the *browser*, not just the Dash container.
-# Example: http://192.168.1.46:8000
-VIDEO_BASE_URL = os.getenv("VIDEO_BASE_URL", "http://127.0.0.1:8000")
+PUBLIC_HOST = os.getenv("PUBLIC_HOST", "127.0.0.1")
 
+# Browser-facing ports (compose: 18000/18100, run.sh host-net: 8000/8100)
+VIDEO_PUBLIC_PORT = int(os.getenv("VIDEO_PUBLIC_PORT", os.getenv("VIDEO_HTTP_PORT", "8000")))
+CONTROL_API_PUBLIC_PORT = int(os.getenv("CONTROL_API_PUBLIC_PORT", str(CONTROL_API_PORT)))
+
+# Optional full override, else compute
+VIDEO_BASE_URL = os.getenv("VIDEO_BASE_URL")
+if not VIDEO_BASE_URL:
+    VIDEO_BASE_URL = f"http://{PUBLIC_HOST}:{VIDEO_PUBLIC_PORT}"
+#VIDEO_BASE_URL = f"HTTP://127.0.0.1:{int(os.getenv('VIDEO_HTTP_PORT'))}"
 DEFAULT_W = int(os.getenv("RTP_WIDTH", "1280"))
 DEFAULT_H = int(os.getenv("RTP_HEIGHT", "720"))
 
@@ -134,7 +145,12 @@ def run():
                 children=[
                     html.Iframe(
                         id="video_iframe",
-                        src=f"{VIDEO_BASE_URL}/video_panel?control_port={CONTROL_API_PORT}&poll_hz=30",
+                        src=(
+                            f"{VIDEO_BASE_URL}/video_panel?"
+                            + urlencode(
+                                {"control_port": CONTROL_API_PUBLIC_PORT, "poll_hz": 30}
+                            )
+                        ),
                         style={"width": "100%", "height": "100vh", "border": "0"},
                     )
                 ],
@@ -194,7 +210,10 @@ def run():
             timeout=2.0,
         )
 
-        iframe_src = f"{VIDEO_BASE_URL}/video_panel?control_port={CONTROL_API_PORT}&poll_hz={fps}"
+        iframe_src = (
+            f"{VIDEO_BASE_URL}/video_panel?"
+            + urlencode({"control_port": CONTROL_API_PUBLIC_PORT, "poll_hz": fps})
+        )        
         return {"sent": payload, "api": r.json()}, iframe_src
 
 

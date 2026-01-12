@@ -63,6 +63,8 @@ class HostRTP:
         # RTP sinks
         self.sink_lock = threading.Lock()
         self.rtp_sinks = {}
+        self.sinks_ready = threading.Event()
+        self._no_sink_last_log_s = 0.0
 
         # ZMQ
         self.context = zmq.Context()
@@ -98,7 +100,7 @@ class HostRTP:
         self.frame_id = 0
 
         # initial sink
-        self._add_rtp_sink(RTP_DST_IP, RTP_PORT)
+        #self._add_rtp_sink(RTP_DST_IP, RTP_PORT)
 
     # ----------------------------
     # Public controls
@@ -347,6 +349,20 @@ class HostRTP:
                     cv2.LINE_AA,
                 )
 
+            # Block until at least one sink exists (or timeout so stop/shutdown checks still run)
+            if not self.sinks_ready.is_set():
+                with self.sink_lock:
+                    has_sinks = bool(self.rtp_sinks)
+                    if has_sinks:
+                        self.sinks_ready.set()
+                if not has_sinks:
+                    now_s = time.monotonic()
+                    if now_s - self._no_sink_last_log_s > 2.0:
+                        self.log.info("No RTP sinks (idle). Waiting for RTP_SUBSCRIBE...")
+                        self._no_sink_last_log_s = now_s
+                    self.sinks_ready.wait(timeout=0.5)
+                    continue
+
             with self._q_lock:
                 q = int(self.jpeg_quality)
 
@@ -387,9 +403,10 @@ class HostRTP:
                         except Exception:
                             pass
                         pipeline.set_state(Gst.State.NULL)
+                    if not self.rtp_sinks:
+                        self.sinks_ready.clear()
 
-            if not self.rtp_sinks:
-                self.log.warning("No RTP sinks remain")
+            # No warning here; idle log above covers this case cleanly.
 
     # ----------------------------
     # Sink management
@@ -415,6 +432,7 @@ class HostRTP:
 
         with self.sink_lock:
             self.rtp_sinks[(ip, port)] = (pipeline, appsrc)
+            self.sinks_ready.set()
 
     def _rebuild_all_sinks(self):
         # capture destinations + teardown old pipelines
@@ -422,6 +440,7 @@ class HostRTP:
             dests = list(self.rtp_sinks.keys())
             old = self.rtp_sinks
             self.rtp_sinks = {}
+            self.sinks_ready.clear()
 
         for (ip, port), (pipeline, appsrc) in old.items():
             try:

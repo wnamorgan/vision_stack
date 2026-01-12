@@ -67,8 +67,12 @@ services:
       - ./services/gcs/app:/app
       - ./services/gcs/code:/app/code
       - ./services/gcs/static:/app/static
-    environment:
+    environment:  
       STATIC_DIR: /app/static      
+      PUBLIC_HOST: 127.0.0.1
+      VIDEO_PUBLIC_PORT: 18000
+      CONTROL_API_PUBLIC_PORT: 18100
+      UDP_DST_IP: gateway
     env_file:
       - ./services/gcs/.env
     networks:

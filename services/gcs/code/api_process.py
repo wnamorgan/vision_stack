@@ -141,7 +141,8 @@ def run() -> None:
     def link_usage():
         with _link_lock:
             if _latest_link_usage is None:
-                return Response(status_code=204)
+                #return Response(status_code=204)
+                return {}
             return _latest_link_usage
 
     @app.post("/control/stream_subscribe")
@@ -176,7 +177,7 @@ def run() -> None:
         sock.send_json(intent.normalize())
         return {"status": "sent", "value": intent.normalize()["value"]}
 
-    uvicorn.run(app, host="0.0.0.0", port=CONTROL_API_PORT)
+    uvicorn.run(app, host="0.0.0.0", port=CONTROL_API_PORT, access_log=False)
 
 
 if __name__ == "__main__":
