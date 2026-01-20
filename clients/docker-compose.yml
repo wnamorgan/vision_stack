@@ -1,0 +1,20 @@
+#    command: python run_gcs.py
+services:
+  gcs:
+    build: ./services/gcs
+    restart: unless-stopped
+    env_file: ./services/gcs/.env
+    environment:  
+      STATIC_DIR: /app/static      
+      PUBLIC_HOST: 127.0.0.1
+      VIDEO_PUBLIC_PORT: 18000
+      CONTROL_API_PUBLIC_PORT: 18100    
+    volumes:
+      - ./services/gcs/app:/app
+      - ./services/gcs/code:/app/code
+      - ./services/gcs/static:/app/static
+    ports:
+      - "18081:8081"
+      - "18100:8100"
+      - "18000:8000"
+    command: ["python","run_gcs.py"]
