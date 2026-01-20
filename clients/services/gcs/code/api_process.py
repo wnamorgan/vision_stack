@@ -90,7 +90,7 @@ def run() -> None:
 
     ctx = zmq.Context()
     sock = ctx.socket(zmq.PUSH)
-    sock.bind(ZMQ_PUSH)
+    sock.connect(ZMQ_PUSH)
     log.info(f"[API] ZMQ PUSH bound at {ZMQ_PUSH}")
 
     app = FastAPI()

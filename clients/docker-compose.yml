@@ -1,6 +1,17 @@
-version: "3.8"
 
 services:
+  gateway:
+    build: ./services/gateway
+    restart: unless-stopped
+    network_mode: host
+    ipc: host
+    env_file: ./services/gateway/.env
+    volumes:
+      - ./services/gateway:/app
+    # Phase 1: prove container builds/starts without taking any ports yet.
+    # (Gateway code would otherwise start multiple processes by default.)
+    command: ["python","app/run_gateway.py"]
+
   gcs:
     build: ./services/gcs
     restart: unless-stopped
