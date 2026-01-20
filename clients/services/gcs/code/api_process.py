@@ -18,6 +18,8 @@ log = logging.getLogger("api")
 CONTROL_API_PORT = int(os.getenv("CONTROL_API_PORT"))
 ZMQ_PUSH = os.getenv("ZMQ_CONTROL")  # e.g. "tcp://*:5559" (GCS side PUSH bind)
 ZMQ_META_SUB = os.getenv("ZMQ_META_SUB", "tcp://127.0.0.1:5570")  # from gcs/udp_rx_process.py
+UDP_DST_IP = os.getenv("UDP_DST_IP")
+UDP_DST_PORT = int(os.getenv("UDP_DST_PORT", "9000"))
 
 _latest_meta: Optional[Dict[str, Any]] = None
 _meta_lock = threading.Lock()
@@ -42,11 +44,17 @@ def get_local_ip() -> str:
     except Exception:
         pass
 
-    # UDP "connect" trick (no packets sent) to select outbound interface
-    # Uses a documentation IP; doesn't require reachable internet.
+    # UDP "connect" trick (no packets sent) to select the source IP the OS would
+    # use to reach the platform gateway. This avoids hardcoding GCS_IP per site.    
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("192.0.2.1", 1))
+        # Prefer routing to the configured gateway destination if present.
+        if UDP_DST_IP:
+            s.connect((UDP_DST_IP, UDP_DST_PORT))
+        else:
+            # Fallback: documentation IP; doesn't require reachable internet.
+            s.connect(("192.0.2.1", 1))
+
         ip = s.getsockname()[0]
         s.close()
         if ip and not ip.startswith("127."):
