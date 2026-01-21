@@ -16,6 +16,7 @@ services:
     build: ./services/gcs
     restart: unless-stopped
     network_mode: host
+    ipc: host
     env_file: ./services/gcs/.env
     environment:
       STATIC_DIR: /app/static
