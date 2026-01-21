@@ -3,29 +3,30 @@ services:
   gateway:
     build: ./services/gateway
     restart: unless-stopped
-    network_mode: host
     ipc: host
     env_file: ./services/gateway/.env
+    ports:
+      - "5004:5004/udp"
+      - "9100:9100/udp"
     volumes:
       - ./services/gateway:/app
-    # Phase 1: prove container builds/starts without taking any ports yet.
-    # (Gateway code would otherwise start multiple processes by default.)
     command: ["python","app/run_gateway.py"]
 
   gcs:
     build: ./services/gcs
     restart: unless-stopped
-    network_mode: host
     ipc: host
     env_file: ./services/gcs/.env
     environment:
-      STATIC_DIR: /app/static
       PUBLIC_HOST: 127.0.0.1
       VIDEO_PUBLIC_PORT: 8000
       CONTROL_API_PUBLIC_PORT: 8100
+    ports:
+      - "8000:8000"
+      - "8100:8100"
+      - "8081:8081"
     volumes:
       - ./services/gcs/app:/app
       - ./services/gcs/code:/app/code
       - ./services/gcs/static:/app/static
     command: ["python","run_gcs.py"]
-
