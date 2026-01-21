@@ -22,9 +22,10 @@ services:
     env_file: ./services/camera/.env
     volumes:
       - ./services/camera:/app
+      - /dev:/dev
+      - /sys/bus/usb:/sys/bus/usb
     ipc: host
-    devices:
-      - "${CAM_DEVICE}:${CAM_DEVICE}"
+    privileged: true
     networks:
       - vision
 
