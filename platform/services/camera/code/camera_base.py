@@ -17,6 +17,7 @@ class Camera:
         self.socket.bind(pub_endpoint)  # ZeroMQ PUB socket
 
         self.exit_flag = threading.Event()  # For signaling thread to stop
+        self.failed_event = threading.Event()  # Set when capture loop fails
         self.capture_thread = threading.Thread(target=self.capture_frames)  # Create the capture thread
         self.log = logging.getLogger("camera")
         logging.basicConfig(level=logging.INFO)
@@ -44,14 +45,8 @@ class Camera:
                 size=self.shm_size,
             )
         except FileExistsError:
-            old = shared_memory.SharedMemory(name=self.shm_name)
-            old.unlink()
-            old.close()
-            self.shm = shared_memory.SharedMemory(
-                create=True,
-                name=self.shm_name,
-                size=self.shm_size,
-            )
+            # Reuse existing SHM so consumers keep a valid handle on restart.
+            self.shm = shared_memory.SharedMemory(name=self.shm_name)
         self._ensure_shm_permissions()
     
         buf = self.shm.buf
@@ -99,31 +94,41 @@ class Camera:
 
     def capture_frames(self):
         """Main loop to capture frames continuously, write to shared memory, and send ZeroMQ notifications."""
+        fail_threshold = int(os.getenv("CAM_FAILURE_THRESHOLD", "5"))
+        fail_count = 0
         while not self.exit_flag.is_set():  # Check the exit flag to stop the thread
             ok, frame = self.capture_frame()  # Capture a frame (implementation in child class)
-            image    = frame['image']
+            if not ok or frame is None:
+                fail_count += 1
+                if fail_count >= fail_threshold:
+                    self.log.warning("Capture failed %s times; stopping", fail_count)
+                    self.failed_event.set()
+                    break
+                continue
+            fail_count = 0
+            image = frame['image']
             metadata = frame['metadata']
             metadata['frame_id'] = self.frame_id
             self.frame_id += 1
             if self.frame_id % 1000 == 0:
                 self.log.info(f"[Camera] Frame Count = {self.frame_id}")
-            if ok and frame is not None:
-                self.write_image_to_shared_memory(image)
-                self.send_frame_metadata(metadata) 
+            self.write_image_to_shared_memory(image)
+            self.send_frame_metadata(metadata)
 
     def start_capture(self):
         """Start the capture thread."""
         self.exit_flag.clear()
         self.capture_thread.start()
 
-    def stop_capture(self):
+    def stop_capture(self, unlink: bool = True):
         """Stop the capture thread gracefully."""
         self.exit_flag.set()  # Signal the thread to stop
         self.capture_thread.join()  # Wait for the thread to finish
         
         try:
             self.shm.close()
-            self.shm.unlink()
+            if unlink:
+                self.shm.unlink()
         except Exception:
             pass
 

@@ -7,6 +7,7 @@ import threading
 import time
 import logging
 import sys
+import cv2
 from glob import glob
 from pathlib import Path
 
@@ -33,6 +34,15 @@ def _shutdown_handler(event: threading.Event):
     return handler
 
 
+def _probe_usb_device(device: str) -> bool:
+    cap = cv2.VideoCapture(device, cv2.CAP_V4L2)
+    if not cap.isOpened():
+        cap.release()
+        return False
+    cap.release()
+    return True
+
+
 def _candidate_video_devices():
     preferred = os.getenv("CAM_DEVICE")
     if preferred and os.path.exists(preferred):
@@ -52,6 +62,9 @@ def get_usb():
     fps = _env_int("CAM_FPS", 120)
     last_error = None
     for device in _candidate_video_devices():
+        if not _probe_usb_device(device):
+            logging.info("No camera at %s yet", device)
+            continue
         try:
             logging.info(
                 "Starting camera capture (width=%s height=%s fps=%s device=%s)",
@@ -94,12 +107,17 @@ def main():
     try:
         while not stop_event.is_set():
             time.sleep(0.5)
+            if success and camera.failed_event.is_set():
+                logging.warning("Camera capture failed; restarting discovery")
+                camera.stop_capture(unlink=False)
+                success = False
+                camera = None
             if not success:
                 (success, camera) = get_camera()
     finally:
         if success:
             logging.info("Stopping camera capture")
-            camera.stop_capture()
+            camera.stop_capture(unlink=True)
 
 
 if __name__ == "__main__":
