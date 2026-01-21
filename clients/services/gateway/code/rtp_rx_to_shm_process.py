@@ -17,9 +17,7 @@ def _env_int(key: str, default: int) -> int:
     v = os.getenv(key)
     return int(v) if v is not None and v != "" else default
 
-
-# Temporary: derive second port so we don't collide with GCS (e.g., 5004 -> 5005).
-RTP_RX_PORT = _env_int("RTP_RX_PORT", _env_int("RTP_PORT", 5004) + 1)
+RTP_RX_PORT = _env_int("RTP_RX_PORT", _env_int("RTP_PORT", 5004))
 
 SHM_NAME = os.getenv("RTP_RX_SHM_NAME", "client_rtp_rx_shm")
 
