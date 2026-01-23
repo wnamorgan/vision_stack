@@ -34,14 +34,6 @@ def _shutdown_handler(event: threading.Event):
     return handler
 
 
-def _probe_usb_device(device: str) -> bool:
-    cap = cv2.VideoCapture(device, cv2.CAP_V4L2)
-    if not cap.isOpened():
-        cap.release()
-        return False
-    cap.release()
-    return True
-
 
 def _candidate_video_devices():
     preferred = os.getenv("CAM_DEVICE")
@@ -53,25 +45,35 @@ def _candidate_video_devices():
     return devices
 
 
-def get_aravis():
-    return (False,None)
+def _probe_usb_device(device: str) -> bool:
+    # avoid OpenCV warnings on missing nodes
+    if not os.path.exists(device) or not os.access(device, os.R_OK):
+        return False
+    cap = cv2.VideoCapture(device, cv2.CAP_V4L2)
+    if not cap.isOpened():
+        cap.release()
+        return False
+    cap.release()
+    return True
+
 
 def get_usb():
     width = _env_int("CAM_WIDTH", 1280)
     height = _env_int("CAM_HEIGHT", 720)
     fps = _env_int("CAM_FPS", 120)
+
+    preferred = os.getenv("CAM_DEVICE")  # only if user pinned it
     last_error = None
+
     for device in _candidate_video_devices():
         if not _probe_usb_device(device):
-            logging.info("No camera at %s yet", device)
+            if preferred:  # only log specific device if user asked for it
+                logging.info("No camera at %s yet", device)
             continue
         try:
             logging.info(
                 "Starting camera capture (width=%s height=%s fps=%s device=%s)",
-                width,
-                height,
-                fps,
-                device,
+                width, height, fps, device,
             )
             camera = USB_Camera(width=width, height=height, fps=fps, dev_video=device)
             camera.start_capture()
@@ -82,9 +84,54 @@ def get_usb():
         except Exception as exc:
             last_error = exc
             logging.exception("Unexpected error opening %s", device)
-    if last_error:
-        logging.info("No USB camera available yet")
+
+    logging.info("No USB camera found yet")
     return (False, None)
+
+
+
+import subprocess
+def _aravis_n_devices_fresh_process() -> int:
+    code = r"""
+import gi
+gi.require_version('Aravis', '0.8')
+from gi.repository import Aravis
+Aravis.update_device_list()
+print(Aravis.get_n_devices())
+"""
+
+    try:
+        out = subprocess.check_output([sys.executable, "-c", code], text=True).strip()
+        return int(out) if out else 0
+    except Exception as exc:
+        logging.info("Aravis probe failed: %s", exc)
+        return 0
+
+def get_aravis():
+    if os.getenv("USE_ARAVIS", "0") != "1":
+        return (False, None)
+
+    try:
+        from code.aravis_camera import AravisCamera
+    except Exception as exc:
+        logging.info("Aravis not available: %s", exc)
+        return (False, None)
+
+    if _aravis_n_devices_fresh_process() == 0:
+        logging.info("No Aravis devices found; skipping Aravis init.")
+        return (False, None)
+
+    try:
+        camera = AravisCamera({})
+        camera.start_capture()
+        return (True, camera)
+    except Exception as exc:
+        logging.warning("Failed to start Aravis camera: %s", exc)
+        return (False, None)
+
+
+
+
 
 def get_camera():
     success, camera = get_aravis()

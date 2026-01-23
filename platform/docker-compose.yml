@@ -19,6 +19,8 @@ services:
   camera:
     build:
       context: ./services/camera
+    environment:
+      USE_ARAVIS: 1
     env_file: ./services/camera/.env
     volumes:
       - ./services/camera:/app
@@ -26,6 +28,26 @@ services:
       - /sys/bus/usb:/sys/bus/usb
     ipc: host
     privileged: true
+    networks:
+      - vision
+
+  aravis:
+    build:
+      context: ./services/aravis
+    volumes:
+      - ./services/aravis:/app
+      - /dev:/dev
+      - /sys/bus/usb:/sys/bus/usb
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ${XAUTHORITY}:/root/.Xauthority:ro
+    environment:
+      DISPLAY: ${DISPLAY}
+      XAUTHORITY: /root/.Xauthority
+      SHM_NAME: aravis_shm
+      ZMQ_PUB_ENDPOINT: tcp://*:5556
+    ipc: host
+    privileged: true
+    command: ["sleep", "infinity"]
     networks:
       - vision
 

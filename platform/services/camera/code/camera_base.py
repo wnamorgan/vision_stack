@@ -97,7 +97,12 @@ class Camera:
         fail_threshold = int(os.getenv("CAM_FAILURE_THRESHOLD", "5"))
         fail_count = 0
         while not self.exit_flag.is_set():  # Check the exit flag to stop the thread
-            ok, frame = self.capture_frame()  # Capture a frame (implementation in child class)
+            try:
+                ok, frame = self.capture_frame()  # Capture a frame (implementation in child class)
+            except Exception:
+                self.log.exception("Capture failed with exception; stopping")
+                self.failed_event.set()
+                break
             if not ok or frame is None:
                 fail_count += 1
                 if fail_count >= fail_threshold:
