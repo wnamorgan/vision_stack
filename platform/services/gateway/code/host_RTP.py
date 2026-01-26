@@ -23,13 +23,19 @@ DEFAULT_Q = int(os.getenv("RTP_QUALITY", os.getenv("RTP_JPEG_QUALITY", "80")))
 DEFAULT_F = float(os.getenv("RTP_TX_HZ", "30"))
 
 
-ZMQ_RTP_USAGE_PUB  = f"tcp://*:{int(os.getenv('ZMQ_RTP_USAGE_PORT'))}"
+host = os.getenv("ZMQ_BIND_PUB_RTP_USAGE_HOST", "0.0.0.0")
+port = int(os.getenv("ZMQ_BIND_PUB_RTP_USAGE_PORT", "5563"))
+ZMQ_RTP_USAGE_PUB  = f"tcp://{host}:{port}"
 
-ZMQ_SUB_ENDPOINT = os.getenv("ZMQ_SUB_ENDPOINT", "tcp://localhost:5555")
-ZMQ_FRAME_META_PUB = os.getenv("ZMQ_FRAME_META_PUB", "tcp://*:5562")
+host = os.getenv("ZMQ_CONNECT_SUB_CAMERA_HOST", "localhost")
+port = int(os.getenv("ZMQ_CONNECT_SUB_CAMERA_PORT", "5555"))
+ZMQ_SUB_ENDPOINT = f"tcp://{host}:{port}"
+host = os.getenv("ZMQ_BIND_PUB_FRAME_META_HOST", "0.0.0.0")
+port = int(os.getenv("ZMQ_BIND_PUB_FRAME_META_PORT", "5562"))
+ZMQ_FRAME_META_PUB = f"tcp://{host}:{port}"
 
-RTP_PORT = int(os.getenv("RTP_PORT", "5004"))
-RTP_DST_IP = os.getenv("RTP_DST_IP", "127.0.0.1")
+RTP_TX_DST_PORT = int(os.getenv("RTP_TX_DST_PORT", "5004"))
+RTP_TX_DST_IP = os.getenv("RTP_TX_DST_IP", "127.0.0.1")
 
 LINK_USAGE_HZ = float(os.getenv("LINK_USAGE_HZ", "1"))
 
@@ -100,7 +106,7 @@ class HostRTP:
         self.frame_id = 0
 
         # initial sink
-        #self._add_rtp_sink(RTP_DST_IP, RTP_PORT)
+        #self._add_rtp_sink(RTP_TX_DST_IP, RTP_TX_DST_PORT)
 
     # ----------------------------
     # Public controls

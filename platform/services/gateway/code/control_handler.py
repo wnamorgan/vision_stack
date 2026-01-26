@@ -5,8 +5,12 @@ import os
 import zmq
 import logging
 
-ZMQ_INTENT_SUB   = os.getenv("ZMQ_INTENT_SUB",   "tcp://localhost:5560")
-ZMQ_INTERNAL_PUB = os.getenv("ZMQ_INTERNAL_PUB", "tcp://*:5561")
+host = os.getenv("ZMQ_CONNECT_SUB_INTENT_HOST", "localhost")
+port = int(os.getenv("ZMQ_CONNECT_SUB_INTENT_PORT", "5560"))
+ZMQ_INTENT_SUB = f"tcp://{host}:{port}"
+host = os.getenv("ZMQ_BIND_PUB_CMD_HOST", "0.0.0.0")
+port = int(os.getenv("ZMQ_BIND_PUB_CMD_PORT", "5561"))
+ZMQ_INTERNAL_PUB = f"tcp://{host}:{port}"
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("control")

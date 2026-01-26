@@ -1,6 +1,6 @@
 # Gateway Service — local testing
 
-This service runs `HostRTP`, which subscribes to the camera’s shared-memory metadata (`ZMQ_SUB_ENDPOINT`) and streams it out via RTP.
+This service runs `HostRTP`, which subscribes to the camera’s shared-memory metadata (`ZMQ_CONNECT_SUB_CAMERA_HOST/PORT`) and streams it out via RTP.
 
 ## Building
 
@@ -10,11 +10,11 @@ This service runs `HostRTP`, which subscribes to the camera’s shared-memory me
 
 ## Running
 
-The gateway runs headless and simply publishes RTP frames to `RTP_DST_IP:RTP_PORT`. Use your preferred RTP viewer or `clients/video_viewer/cv_viewer_RTP.py` to verify the stream.
+The gateway runs headless and simply publishes RTP frames to `RTP_TX_DST_IP:RTP_TX_DST_PORT`. Use your preferred RTP viewer or `clients/video_viewer/cv_viewer_RTP.py` to verify the stream.
 
 ### Running with Docker (`run.sh`)
 
-`run.sh` uses the same image but overrides `ZMQ_SUB_ENDPOINT` to `localhost` (set `FORCE_LOCAL=1` if you need that explicitly) while keeping the Compose `.env` values untouched. It shares IPC/network so the gateway can open the camera’s shared memory when you run the camera service locally. Run the script and then attach to the camera stream (e.g., via the GStreamer viewer) to confirm the pipeline:
+`run.sh` uses the same image but overrides `ZMQ_CONNECT_SUB_CAMERA_HOST/PORT` to `localhost` (set `FORCE_LOCAL=1` if you need that explicitly) while keeping the Compose `.env` values untouched. It shares IPC/network so the gateway can open the camera’s shared memory when you run the camera service locally. Run the script and then attach to the camera stream (e.g., via the GStreamer viewer) to confirm the pipeline:
 
 ```bash
 ./services/gateway/run.sh
@@ -25,9 +25,10 @@ The gateway runs headless and simply publishes RTP frames to `RTP_DST_IP:RTP_POR
 When Compose owns the topology, use service hostnames instead of `localhost` so the gateway connects to the camera on the shared network. Drop the `--network=host` flags (compose handles networking) and place these values in the Compose-provided `.env` (or override per profile):
 
 ```bash
-ZMQ_SUB_ENDPOINT=tcp://camera:5555
-RTP_PORT=5004
-RTP_DST_IP=127.0.0.1
+ZMQ_CONNECT_SUB_CAMERA_HOST=camera
+ZMQ_CONNECT_SUB_CAMERA_PORT=5555
+RTP_TX_DST_PORT=5004
+RTP_TX_DST_IP=127.0.0.1
 ```
 
 Bring up the stack with:
@@ -36,7 +37,7 @@ Bring up the stack with:
 docker compose up --build
 ```
 
-Compose already shares IPC via `ipc: host`, which lets the gateway access the camera’s shared memory segment, and the gateway service overrides `ZMQ_SUB_ENDPOINT` so it always connects to `camera:5555`.
+Compose already shares IPC via `ipc: host`, which lets the gateway access the camera’s shared memory segment, and the gateway service overrides `ZMQ_CONNECT_SUB_CAMERA_HOST/PORT` so it always connects to `camera:5555`.
 
 ## Tests
 

@@ -1,4 +1,5 @@
 import time
+import os
 import cv2
 import zmq
 import numpy as np
@@ -27,7 +28,9 @@ def main():
     # ZeroMQ subscriber
     context = zmq.Context()
     socket = context.socket(zmq.SUB)
-    socket.connect("tcp://localhost:5555")
+    host = os.getenv("ZMQ_CONNECT_SUB_CAMERA_HOST", "localhost")
+    port = int(os.getenv("ZMQ_CONNECT_SUB_CAMERA_PORT", "5555"))
+    socket.connect(f"tcp://{host}:{port}")
     socket.setsockopt_string(zmq.SUBSCRIBE, "")
 
     width = height = channels = None
@@ -89,5 +92,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

@@ -2,10 +2,16 @@ import os, json, socket, threading, logging
 import zmq
 import time
 
-ZMQ_META_SUB = os.getenv("ZMQ_META_SUB", "tcp://localhost:5562")
-ZMQ_INTERNAL_SUB = os.getenv("ZMQ_INTERNAL_SUB", "tcp://localhost:5561")
-META_UDP_PORT = int(os.getenv("META_UDP_PORT", "9100"))
-ZMQ_RTP_USAGE_SUB = f"tcp://localhost:{int(os.getenv('ZMQ_RTP_USAGE_PORT'))}"
+host = os.getenv("ZMQ_CONNECT_SUB_FRAME_META_HOST", "localhost")
+port = int(os.getenv("ZMQ_CONNECT_SUB_FRAME_META_PORT", "5562"))
+ZMQ_META_SUB = f"tcp://{host}:{port}"
+host = os.getenv("ZMQ_CONNECT_SUB_CMD_HOST", "localhost")
+port = int(os.getenv("ZMQ_CONNECT_SUB_CMD_PORT", "5561"))
+ZMQ_INTERNAL_SUB = f"tcp://{host}:{port}"
+UDP_META_PORT = int(os.getenv("UDP_META_PORT", "9100"))
+host = os.getenv("ZMQ_CONNECT_SUB_RTP_USAGE_HOST", "localhost")
+port = int(os.getenv("ZMQ_CONNECT_SUB_RTP_USAGE_PORT", "5563"))
+ZMQ_RTP_USAGE_SUB = f"tcp://{host}:{port}"
 LINK_USAGE_HZ = float(os.getenv("LINK_USAGE_HZ", "1"))
 
 logging.basicConfig(level=logging.INFO)
@@ -96,8 +102,8 @@ def run():
                 ip = cmd.get("ip")
                 if ip:
                     with dests_lock:
-                        dests.add((ip, META_UDP_PORT))
-                    log.info("Added meta dest %s:%d", ip, META_UDP_PORT)
+                        dests.add((ip, UDP_META_PORT))
+                    log.info("Added meta dest %s:%d", ip, UDP_META_PORT)
 
     def meta_loop():
         while True:

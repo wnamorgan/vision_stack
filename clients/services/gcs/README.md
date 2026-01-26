@@ -40,11 +40,11 @@ pip install fastapi uvicorn
 Edit `services/gcs/.env`:
 
 ```env
-RTP_PORT=5004
+RTP_RX_LISTEN_PORT=5004
 GCS_HTTP_PORT=8000
 ```
 
-`RTP_PORT` controls the UDP input port for the JPEG RTP stream (matching whatever the dashboard publishes), and `GCS_HTTP_PORT` controls the HTTP port served to the browser.
+`RTP_RX_LISTEN_PORT` controls the UDP input port for the JPEG RTP stream (matching whatever the dashboard publishes).
 
 ## How to run
 

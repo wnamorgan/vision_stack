@@ -11,7 +11,7 @@ This folder includes a lightweight viewer that consumes the shared-memory feed p
    python services/camera/tests/test_container.py
    ```
 
-The viewer attaches to `tcp://localhost:5555`, maps the shared memory segment, and opens an OpenCV window with an FPS overlay. Press `q` to exit.
+The viewer attaches to `ZMQ_CONNECT_SUB_CAMERA_HOST/PORT` (defaults to `localhost:5555`), maps the shared memory segment, and opens an OpenCV window with an FPS overlay. Press `q` to exit.
 
 ## Local-Only Test
 

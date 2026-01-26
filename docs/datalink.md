@@ -111,12 +111,12 @@ RTP avoids **slow transport-layer retransmissions**, not fast PHY retries.
 
 ### ❌ What NOT to do (broadcast)
 ```yaml
-RTP_DST_IP: 192.168.1.255
+RTP_TX_DST_IP: 192.168.1.255
 ```
 
 ### ✅ Correct (unicast)
 ```yaml
-RTP_DST_IP: 192.168.1.50
+RTP_TX_DST_IP: 192.168.1.50
 ```
 
 ---

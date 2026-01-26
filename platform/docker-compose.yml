@@ -44,7 +44,8 @@ services:
       DISPLAY: ${DISPLAY}
       XAUTHORITY: /root/.Xauthority
       SHM_NAME: aravis_shm
-      ZMQ_PUB_ENDPOINT: tcp://*:5556
+      ZMQ_BIND_PUB_CAMERA_HOST: 0.0.0.0
+      ZMQ_BIND_PUB_CAMERA_PORT: 5556
     ipc: host
     privileged: true
     command: ["sleep", "infinity"]
@@ -58,7 +59,8 @@ services:
     volumes:
       - ./services/gateway:/app
     environment:
-      ZMQ_SUB_ENDPOINT: tcp://camera:5555
+      ZMQ_CONNECT_SUB_CAMERA_HOST: camera
+      ZMQ_CONNECT_SUB_CAMERA_PORT: 5555
     depends_on:
       - camera
     ipc: host
@@ -80,10 +82,10 @@ services:
   #     - ./services/gcs/static:/app/static
   #   environment:  
   #     STATIC_DIR: /app/static      
-  #     PUBLIC_HOST: 127.0.0.1
-  #     VIDEO_PUBLIC_PORT: 18000
-  #     CONTROL_API_PUBLIC_PORT: 18100
-  #     UDP_DST_IP: gateway
+  #     HTTP_PUBLIC_HOST: 127.0.0.1
+  #     HTTP_PUBLIC_VIDEO_PORT: 18000
+  #     HTTP_PUBLIC_CONTROL_PORT: 18100
+  #     UDP_INTENT_DST_IP: gateway
   #   env_file:
   #     - ./services/gcs/.env
   #   networks:
@@ -91,9 +93,9 @@ services:
   #   ports:
   #     # publish these so the host can reach the GCS web services
   #     # (use non-conflicting host ports; your host already has something on 8081)
-  #     - "18000:8000/tcp"  # VIDEO_HTTP_PORT
-  #     - "18100:8100/tcp"  # CONTROL_API_PORT
-  #     - "18081:8081/tcp"  # DASH_PORT
+  #     - "18000:8000/tcp"  # HTTP_BIND_VIDEO_PORT
+  #     - "18100:8100/tcp"  # HTTP_BIND_CONTROL_PORT
+  #     - "18081:8081/tcp"  # HTTP_BIND_DASH_PORT
 
 
 #    command: python run_gcs.py

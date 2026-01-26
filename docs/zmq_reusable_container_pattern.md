@@ -87,10 +87,12 @@ Fan-in scenarios may require reversing this.
 ### 3.2 Camera `.env`
 
 ```env
-ZMQ_SUB_ENDPOINT=tcp://dashboard:6000
+ZMQ_CONNECT_SUB_CTRL_HOST=dashboard
+ZMQ_CONNECT_SUB_CTRL_PORT=6000
 ZMQ_SUB_TOPICS=camera.cmd
 
-ZMQ_PUB_ENDPOINT=tcp://*:5555
+ZMQ_BIND_PUB_DATA_HOST=0.0.0.0
+ZMQ_BIND_PUB_DATA_PORT=5555
 ZMQ_PUB_TOPICS=camera.frame,camera.heartbeat
 ```
 
@@ -163,10 +165,10 @@ class CameraZMQ:
     Requires logging.basicConfig() to be configured before instantiation.
     """
     def __init__(self):
-        self.sub_endpoint = require("ZMQ_SUB_ENDPOINT")
+        self.sub_endpoint = f"tcp://{require('ZMQ_CONNECT_SUB_CTRL_HOST')}:{require('ZMQ_CONNECT_SUB_CTRL_PORT')}"
         self.sub_topics = [validate_topic(t) for t in require("ZMQ_SUB_TOPICS").split(",")]
 
-        self.pub_endpoint = require("ZMQ_PUB_ENDPOINT")
+        self.pub_endpoint = f"tcp://{require('ZMQ_BIND_PUB_DATA_HOST')}:{require('ZMQ_BIND_PUB_DATA_PORT')}"
 
         self.ctx = zmq.Context()
 

@@ -10,9 +10,12 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 
 
-VIDEO_HTTP_PORT = int(os.getenv("VIDEO_HTTP_PORT", "8000"))
+HTTP_BIND_VIDEO_HOST = os.getenv("HTTP_BIND_VIDEO_HOST", "0.0.0.0")
+HTTP_BIND_VIDEO_PORT = int(os.getenv("HTTP_BIND_VIDEO_PORT", "8000"))
 
-ZMQ_FRAME_SUB = os.getenv("ZMQ_FRAME_SUB", "tcp://127.0.0.1:5572")
+ZMQ_CONNECT_SUB_FRAME_HOST = os.getenv("ZMQ_CONNECT_SUB_FRAME_HOST", "127.0.0.1")
+ZMQ_CONNECT_SUB_FRAME_PORT = int(os.getenv("ZMQ_CONNECT_SUB_FRAME_PORT", "5572"))
+ZMQ_FRAME_SUB = f"tcp://{ZMQ_CONNECT_SUB_FRAME_HOST}:{ZMQ_CONNECT_SUB_FRAME_PORT}"
 MAX_JPEG_BYTES = int(os.getenv("MAX_JPEG_BYTES", "8000000"))
 
 latest_jpeg = None
@@ -94,4 +97,4 @@ def run():
                 },
             )
 
-    uvicorn.run(app, host="0.0.0.0", port=VIDEO_HTTP_PORT, access_log=False)
+    uvicorn.run(app, host=HTTP_BIND_VIDEO_HOST, port=HTTP_BIND_VIDEO_PORT, access_log=False)

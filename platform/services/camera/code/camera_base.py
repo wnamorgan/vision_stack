@@ -13,7 +13,9 @@ class Camera:
         # ZeroMQ publisher
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.PUB)
-        pub_endpoint = os.getenv("ZMQ_PUB_ENDPOINT", "tcp://*:5555")
+        host = os.getenv("ZMQ_BIND_PUB_CAMERA_HOST", "0.0.0.0")
+        port = int(os.getenv("ZMQ_BIND_PUB_CAMERA_PORT", "5555"))
+        pub_endpoint = f"tcp://{host}:{port}"
         self.socket.bind(pub_endpoint)  # ZeroMQ PUB socket
 
         self.exit_flag = threading.Event()  # For signaling thread to stop

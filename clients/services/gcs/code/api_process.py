@@ -15,11 +15,16 @@ from .control_schema import ControlIntent
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("api")
 
-CONTROL_API_PORT = int(os.getenv("CONTROL_API_PORT"))
-ZMQ_PUSH = os.getenv("ZMQ_CONTROL")  # e.g. "tcp://*:5559" (GCS side PUSH bind)
-ZMQ_META_SUB = os.getenv("ZMQ_META_SUB", "tcp://127.0.0.1:5570")  # 5570 is default UDP RX PUB
-UDP_DST_IP = os.getenv("UDP_DST_IP")
-UDP_DST_PORT = int(os.getenv("UDP_DST_PORT", "9000"))
+HTTP_BIND_CONTROL_HOST = os.getenv("HTTP_BIND_CONTROL_HOST", "0.0.0.0")
+HTTP_BIND_CONTROL_PORT = int(os.getenv("HTTP_BIND_CONTROL_PORT", "8100"))
+ZMQ_CONNECT_PUSH_INTENT_HOST = os.getenv("ZMQ_CONNECT_PUSH_INTENT_HOST", "gateway")
+ZMQ_CONNECT_PUSH_INTENT_PORT = int(os.getenv("ZMQ_CONNECT_PUSH_INTENT_PORT", "6000"))
+ZMQ_PUSH_ENDPOINT = f"tcp://{ZMQ_CONNECT_PUSH_INTENT_HOST}:{ZMQ_CONNECT_PUSH_INTENT_PORT}"
+ZMQ_CONNECT_SUB_TELEM_HOST = os.getenv("ZMQ_CONNECT_SUB_TELEM_HOST", "127.0.0.1")
+ZMQ_CONNECT_SUB_TELEM_PORT = int(os.getenv("ZMQ_CONNECT_SUB_TELEM_PORT", "5570"))
+ZMQ_META_SUB = f"tcp://{ZMQ_CONNECT_SUB_TELEM_HOST}:{ZMQ_CONNECT_SUB_TELEM_PORT}"
+UDP_INTENT_DST_IP = os.getenv("UDP_INTENT_DST_IP")
+UDP_INTENT_DST_PORT = int(os.getenv("UDP_INTENT_DST_PORT", "9000"))
 
 _latest_meta: Optional[Dict[str, Any]] = None
 _meta_lock = threading.Lock()
@@ -49,8 +54,8 @@ def get_local_ip() -> str:
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         # Prefer routing to the configured gateway destination if present.
-        if UDP_DST_IP:
-            s.connect((UDP_DST_IP, UDP_DST_PORT))
+        if UDP_INTENT_DST_IP:
+            s.connect((UDP_INTENT_DST_IP, UDP_INTENT_DST_PORT))
         else:
             # Fallback: documentation IP; doesn't require reachable internet.
             s.connect(("192.0.2.1", 1))
@@ -85,13 +90,13 @@ class PixelClickReq(BaseModel):
 
 
 def run() -> None:
-    if not ZMQ_PUSH:
-        raise RuntimeError("ZMQ_CONTROL env var is required (e.g., tcp://*:5559)")
+    if not ZMQ_PUSH_ENDPOINT:
+        raise RuntimeError("ZMQ_CONNECT_PUSH_INTENT_HOST/PORT env var is required")
 
     ctx = zmq.Context()
     sock = ctx.socket(zmq.PUSH)
-    sock.connect(ZMQ_PUSH)
-    log.info(f"[API] ZMQ PUSH bound at {ZMQ_PUSH}")
+    sock.connect(ZMQ_PUSH_ENDPOINT)
+    log.info(f"[API] ZMQ PUSH connected to {ZMQ_PUSH_ENDPOINT}")
 
     app = FastAPI()
 
@@ -156,7 +161,7 @@ def run() -> None:
     @app.post("/control/stream_subscribe")
     def stream_subscribe(req: HelloReq):
         gcs_ip = get_local_ip()
-        rtp_port = int(os.getenv("RTP_PORT", "5004"))
+        rtp_port = int(os.getenv("RTP_RX_LISTEN_PORT", "5004"))
         intent = ControlIntent(type="RTP_SUBSCRIBE", value={"ip": gcs_ip, "port": rtp_port})
         sock.send_json(intent.normalize())
         return {"status": "sent", "ip": gcs_ip, "port": rtp_port}
@@ -185,7 +190,7 @@ def run() -> None:
         sock.send_json(intent.normalize())
         return {"status": "sent", "value": intent.normalize()["value"]}
 
-    uvicorn.run(app, host="0.0.0.0", port=CONTROL_API_PORT, access_log=False)
+    uvicorn.run(app, host=HTTP_BIND_CONTROL_HOST, port=HTTP_BIND_CONTROL_PORT, access_log=False)
 
 
 if __name__ == "__main__":

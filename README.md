@@ -4,7 +4,7 @@ This repository is built around _services_ that expose their own Dockerfiles, en
 
 ## Build
 
-`docker-compose.yml` wires the camera and dashboard services together on the shared `vision` network and honors the shared contracts (`ZMQ_SUB_ENDPOINT=tcp://camera:5555`, shared memory via `ipc: host`, etc.). Use Compose to build either a single service or the entire stack:
+`docker-compose.yml` wires the camera and dashboard services together on the shared `vision` network and honors the shared contracts (`ZMQ_CONNECT_SUB_CAMERA_HOST=camera`, `ZMQ_CONNECT_SUB_CAMERA_PORT=5555`, shared memory via `ipc: host`, etc.). Use Compose to build either a single service or the entire stack:
 
 ```bash
 docker compose build camera

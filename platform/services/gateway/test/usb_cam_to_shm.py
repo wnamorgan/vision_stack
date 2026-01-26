@@ -1,3 +1,4 @@
+import os
 import zmq
 import threading
 from multiprocessing import shared_memory
@@ -13,7 +14,9 @@ class Camera:
         # ZeroMQ publisher
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.PUB)
-        self.socket.bind("tcp://*:5555")  # ZeroMQ PUB socket
+        host = os.getenv("ZMQ_BIND_PUB_CAMERA_HOST", "0.0.0.0")
+        port = int(os.getenv("ZMQ_BIND_PUB_CAMERA_PORT", "5555"))
+        self.socket.bind(f"tcp://{host}:{port}")  # ZeroMQ PUB socket
 
         self.exit_flag = threading.Event()  # For signaling thread to stop
         self.capture_thread = threading.Thread(target=self.capture_frames)  # Create the capture thread

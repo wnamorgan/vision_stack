@@ -68,7 +68,9 @@ def _parse_bindings(s: str) -> List[Binding]:
 
 def run():
     # ZMQ PUB endpoint (single bus for all UDP streams)
-    zmq_pub = os.getenv("ZMQ_PUB_ENDPOINT", "tcp://*:5570")
+    host = os.getenv("ZMQ_BIND_PUB_TELEM_HOST", "0.0.0.0")
+    port = int(os.getenv("ZMQ_BIND_PUB_TELEM_PORT", "5570"))
+    zmq_pub = f"tcp://{host}:{port}"
 
     # Multiple UDP ports supported
     bindings = _parse_bindings(os.getenv("UDP_RX_BINDINGS", "platform:9100"))

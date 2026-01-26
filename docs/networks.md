@@ -92,8 +92,8 @@ For ZeroMQ, treat:
 - **connect** = “dial a stable endpoint”
 
 Typical pattern:
-- Publisher binds inside its container: `tcp://0.0.0.0:5555`
-- Subscribers connect using service DNS: `tcp://camera:5555`
+- Publisher binds inside its container: `ZMQ_BIND_PUB_CAMERA_HOST=0.0.0.0`, `ZMQ_BIND_PUB_CAMERA_PORT=5555`
+- Subscribers connect using service DNS: `ZMQ_CONNECT_SUB_CAMERA_HOST=camera`, `ZMQ_CONNECT_SUB_CAMERA_PORT=5555`
 
 Why this works:
 - `camera` resolves via Docker DNS on the `vision` bridge.
@@ -109,8 +109,8 @@ Why this works:
 
 ### 4.1 Host-side viewing/debugging (local machine)
 Set the sender destination to the **host bridge endpoint**:
-- `RTP_DST_IP = 172.30.10.1`
-- `RTP_PORT  = 5004`
+- `RTP_TX_DST_IP = 172.30.10.1`
+- `RTP_TX_DST_PORT  = 5004`
 
 Then a host-side user can receive:
 ```bash
@@ -121,8 +121,8 @@ This works even if Ethernet/Wi‑Fi are down because it is local virtual network
 
 ### 4.2 Remote-side user over Ethernet/radio (LAN visibility)
 Set the sender destination to the LAN path:
-- **Unicast (recommended):** `RTP_DST_IP = 192.168.1.<receiver>`
-- **Broadcast:** `RTP_DST_IP = 192.168.1.255` (only if receivers are on that L2 segment)
+- **Unicast (recommended):** `RTP_TX_DST_IP = 192.168.1.<receiver>`
+- **Broadcast:** `RTP_TX_DST_IP = 192.168.1.255` (only if receivers are on that L2 segment)
 
 Broadcast notes:
 - Host self-receive of its own broadcast is not guaranteed across all NIC/driver/kernel combinations.
@@ -164,7 +164,7 @@ In Docker Compose:
 
 Verify effective values inside a container:
 ```bash
-docker compose exec gateway sh -lc 'echo RTP_DST_IP=$RTP_DST_IP RTP_PORT=$RTP_PORT'
+docker compose exec gateway sh -lc 'echo RTP_TX_DST_IP=$RTP_TX_DST_IP RTP_TX_DST_PORT=$RTP_TX_DST_PORT'
 ```
 
 ---
@@ -201,4 +201,4 @@ On a host connected to the LAN:
 ```bash
 sudo tcpdump -ni ${MACVLAN_PARENT} udp port 5004
 ```
-Packets appear only when `RTP_DST_IP` targets a `192.168.1.x/.255` destination.
+Packets appear only when `RTP_TX_DST_IP` targets a `192.168.1.x/.255` destination.

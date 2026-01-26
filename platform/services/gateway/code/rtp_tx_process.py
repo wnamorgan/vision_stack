@@ -4,7 +4,9 @@ import numpy as np
 import threading
 import zmq
 from .host_RTP import HostRTP
-ZMQ_INTERNAL_SUB = os.getenv("ZMQ_INTERNAL_SUB", "tcp://localhost:5561")
+host = os.getenv("ZMQ_CONNECT_SUB_CMD_HOST", "localhost")
+port = int(os.getenv("ZMQ_CONNECT_SUB_CMD_PORT", "5561"))
+ZMQ_INTERNAL_SUB = f"tcp://{host}:{port}"
 
 def rtp_tx_process():
     host = HostRTP()

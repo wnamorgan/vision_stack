@@ -3,24 +3,26 @@ import socket
 import json
 import zmq
 import logging
-UDP_LISTEN_IP = os.getenv("UDP_LISTEN_IP", "0.0.0.0")
-UDP_LISTEN_PORT = int(os.getenv("UDP_LISTEN_PORT", "9000"))
+UDP_RX_LISTEN_HOST = os.getenv("UDP_RX_LISTEN_HOST", "0.0.0.0")
+UDP_RX_LISTEN_PORT = int(os.getenv("UDP_RX_LISTEN_PORT", "9000"))
 
 class UDPListener:
     def __init__(self):
         
         self.listener_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.listener_socket.bind((UDP_LISTEN_IP, UDP_LISTEN_PORT))
-        print(f"Listening for UDP on port {UDP_LISTEN_PORT}")
+        self.listener_socket.bind((UDP_RX_LISTEN_HOST, UDP_RX_LISTEN_PORT))
+        print(f"Listening for UDP on port {UDP_RX_LISTEN_PORT}")
 
         self.zctx = zmq.Context()
         self.zpub = self.zctx.socket(zmq.PUB)
-        self.zpub.bind(os.getenv("ZMQ_INTENT_PUB", "tcp://*:5560"))
+        host = os.getenv("ZMQ_BIND_PUB_INTENT_HOST", "0.0.0.0")
+        port = int(os.getenv("ZMQ_BIND_PUB_INTENT_PORT", "5560"))
+        self.zpub.bind(f"tcp://{host}:{port}")
         
         logging.basicConfig(level=logging.INFO)
         self.log = logging.getLogger("gateway")
 
-        self.log.info("[GATEWAY] UDP RX ready on %s:%s", UDP_LISTEN_IP, UDP_LISTEN_PORT)
+        self.log.info("[GATEWAY] UDP RX ready on %s:%s", UDP_RX_LISTEN_HOST, UDP_RX_LISTEN_PORT)
 
     def listen(self):
         while True:

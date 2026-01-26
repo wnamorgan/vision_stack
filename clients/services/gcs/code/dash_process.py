@@ -7,23 +7,21 @@ from dash import html, dcc
 from dash.dependencies import Input, Output, State
 
 # Internal ports (inside container / host-net)
-CONTROL_API_PORT = int(os.getenv("CONTROL_API_PORT", "8100"))
+HTTP_BIND_CONTROL_PORT = int(os.getenv("HTTP_BIND_CONTROL_PORT", "8100"))
+HTTP_BIND_DASH_PORT = int(os.getenv("HTTP_BIND_DASH_PORT", "8081"))
+HTTP_BIND_DASH_HOST = os.getenv("HTTP_BIND_DASH_HOST", "0.0.0.0")
 
-
-
-DASH_PORT = int(os.getenv("DASH_PORT", "8081"))
-
-PUBLIC_HOST = os.getenv("PUBLIC_HOST", "127.0.0.1")
+HTTP_PUBLIC_HOST = os.getenv("HTTP_PUBLIC_HOST", "127.0.0.1")
 
 # Browser-facing ports (compose: 18000/18100, run.sh host-net: 8000/8100)
-VIDEO_PUBLIC_PORT = int(os.getenv("VIDEO_PUBLIC_PORT", os.getenv("VIDEO_HTTP_PORT", "8000")))
-CONTROL_API_PUBLIC_PORT = int(os.getenv("CONTROL_API_PUBLIC_PORT", str(CONTROL_API_PORT)))
+HTTP_PUBLIC_VIDEO_PORT = int(os.getenv("HTTP_PUBLIC_VIDEO_PORT", os.getenv("HTTP_BIND_VIDEO_PORT", "8000")))
+HTTP_PUBLIC_CONTROL_PORT = int(os.getenv("HTTP_PUBLIC_CONTROL_PORT", str(HTTP_BIND_CONTROL_PORT)))
 
 # Optional full override, else compute
 VIDEO_BASE_URL = os.getenv("VIDEO_BASE_URL")
 if not VIDEO_BASE_URL:
-    VIDEO_BASE_URL = f"http://{PUBLIC_HOST}:{VIDEO_PUBLIC_PORT}"
-#VIDEO_BASE_URL = f"HTTP://127.0.0.1:{int(os.getenv('VIDEO_HTTP_PORT'))}"
+    VIDEO_BASE_URL = f"http://{HTTP_PUBLIC_HOST}:{HTTP_PUBLIC_VIDEO_PORT}"
+#VIDEO_BASE_URL = f"HTTP://127.0.0.1:{int(os.getenv('HTTP_BIND_VIDEO_PORT'))}"
 DEFAULT_W = int(os.getenv("RTP_WIDTH", "1280"))
 DEFAULT_H = int(os.getenv("RTP_HEIGHT", "720"))
 
@@ -148,7 +146,7 @@ def run():
                         src=(
                             f"{VIDEO_BASE_URL}/video_panel?"
                             + urlencode(
-                                {"control_port": CONTROL_API_PUBLIC_PORT, "poll_hz": 30}
+                                {"control_port": HTTP_PUBLIC_CONTROL_PORT, "poll_hz": 30}
                             )
                         ),
                         style={"width": "100%", "height": "100vh", "border": "0"},
@@ -164,7 +162,7 @@ def run():
         if not n:
             return ""
         r = requests.post(
-            f"http://127.0.0.1:{CONTROL_API_PORT}/control/stream_subscribe",
+            f"http://127.0.0.1:{HTTP_BIND_CONTROL_PORT}/control/stream_subscribe",
             json={"value": n},
             timeout=2.0,
         )
@@ -205,14 +203,14 @@ def run():
 
         payload = {"scale": round(scale, 6), "w": w, "h": h, "fps": fps, "quality": q}
         r = requests.post(
-            f"http://127.0.0.1:{CONTROL_API_PORT}/control/video_settings",
+            f"http://127.0.0.1:{HTTP_BIND_CONTROL_PORT}/control/video_settings",
             json=payload,
             timeout=2.0,
         )
 
         iframe_src = (
             f"{VIDEO_BASE_URL}/video_panel?"
-            + urlencode({"control_port": CONTROL_API_PUBLIC_PORT, "poll_hz": fps})
+            + urlencode({"control_port": HTTP_PUBLIC_CONTROL_PORT, "poll_hz": fps})
         )        
         return {"sent": payload, "api": r.json()}, iframe_src
 
@@ -220,7 +218,7 @@ def run():
     @app.callback(Output("link_usage", "children"), Input("link_tick", "n_intervals"))
     def show_link(_n):
         try:
-            r = requests.get(f"http://127.0.0.1:{CONTROL_API_PORT}/link_usage", timeout=0.5)
+            r = requests.get(f"http://127.0.0.1:{HTTP_BIND_CONTROL_PORT}/link_usage", timeout=0.5)
             if r.status_code == 204:
                 return ""
             if r.status_code != 200:
@@ -238,7 +236,7 @@ def run():
         total = int(v.get("rtp_sinks_total", 0) or 0)
         return f"RTP {rtp_mbps:.1f} Mbps (sinks {ok}/{total}) | UDP {udp_mbps:.2f} Mbps"   
 
-    app.run(host="0.0.0.0", port=DASH_PORT)
+    app.run(host=HTTP_BIND_DASH_HOST, port=HTTP_BIND_DASH_PORT)
 
 
 if __name__ == "__main__":

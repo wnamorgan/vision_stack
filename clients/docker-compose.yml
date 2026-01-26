@@ -18,9 +18,9 @@ services:
     ipc: host
     env_file: ./services/gcs/.env
     environment:
-      PUBLIC_HOST: 127.0.0.1
-      VIDEO_PUBLIC_PORT: 8000
-      CONTROL_API_PUBLIC_PORT: 8100
+      HTTP_PUBLIC_HOST: 127.0.0.1
+      HTTP_PUBLIC_VIDEO_PORT: 8000
+      HTTP_PUBLIC_CONTROL_PORT: 8100
     ports:
       - "8000:8000"
       - "8100:8100"

@@ -17,7 +17,7 @@ def _env_int(key: str, default: int) -> int:
     v = os.getenv(key)
     return int(v) if v is not None and v != "" else default
 
-RTP_RX_PORT = _env_int("RTP_RX_PORT", _env_int("RTP_PORT", 5004))
+RTP_RX_LISTEN_PORT = _env_int("RTP_RX_LISTEN_PORT", 5004)
 
 SHM_NAME = os.getenv("RTP_RX_SHM_NAME", "client_rtp_rx_shm")
 
@@ -113,13 +113,13 @@ def run() -> None:
 
     # Mirror GCS video_process intent: rtpjpegdepay -> appsink (NO decode/encode)
     pipeline_str = (
-        f'udpsrc port={RTP_RX_PORT} caps="application/x-rtp,media=video,encoding-name=JPEG,payload=26,clock-rate=90000" '
+        f'udpsrc port={RTP_RX_LISTEN_PORT} caps="application/x-rtp,media=video,encoding-name=JPEG,payload=26,clock-rate=90000" '
         f'! rtpjitterbuffer latency=0 '
         f'! rtpjpegdepay '
         f'! appsink name=sink caps=image/jpeg sync=false max-buffers=1 drop=true'
     )
 
-    log.info("[RTP->SHM] starting pipeline port=%d -> shm=%s", RTP_RX_PORT, SHM_NAME)
+    log.info("[RTP->SHM] starting pipeline port=%d -> shm=%s", RTP_RX_LISTEN_PORT, SHM_NAME)
     pipe = Gst.parse_launch(pipeline_str)
     sink = pipe.get_by_name("sink")
     pipe.set_state(Gst.State.PLAYING)
@@ -158,7 +158,7 @@ def run() -> None:
         if now - t0 >= 1.0:
             seq = int(writer.seq[0])
             nb = int(writer.nbytes[0])
-            log.info("[RTP->SHM] port=%d fps=%d seq=%d nbytes=%d", RTP_RX_PORT, frames, seq, nb)
+            log.info("[RTP->SHM] port=%d fps=%d seq=%d nbytes=%d", RTP_RX_LISTEN_PORT, frames, seq, nb)
             frames = 0
             t0 = now
 
