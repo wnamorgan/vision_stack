@@ -3,20 +3,24 @@ import time
 from collections import deque
 from util.serial_device import SerialDevice  # adjust path as needed
 import threading
+import os
+
+IMU_BAUD  = int(os.getenv("IMU_BAUD", "921600"))
+
 class IMUInterface(SerialDevice):
     HEADER = b'\xAA\x55'
     HEADER_LEN = 2
     MAX_PAYLOAD_SIZE = 256
     GAA_ID = 0x8F
 
-    def __init__(self, *, port=None, usb_id=None, baudrate=921600):
+    def __init__(self, *, port=None, usb_id=None, baudrate=IMU_BAUD):
         super().__init__(port = port, usb_id=usb_id, baudrate=baudrate)
         self.name = "imu"
         self.rxCount = 0
         self.rxErrorCount = 0
         self.t_last_received = time.time()
         self.t0 = time.time()
-        self.low_rate=True
+        self.low_rate=False
         self.sample_deque = deque()
         self.deque_lock = threading.Lock()
 

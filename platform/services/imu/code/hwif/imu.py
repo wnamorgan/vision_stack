@@ -5,10 +5,17 @@ import psutil
 import ctypes
 from itertools import product
 from hwif.imu_interface import IMUInterface  # adjust as needed
+import logging
+
+USB_VENDOR  = os.getenv("USB_VENDOR", "0403")
+USB_PRODUCT = os.getenv("USB_PRODUCT", "0615")
+USB_SERIAL  = os.getenv("USB_SERIAL", "D30FJZ4X")
+
 
 class imu(IMUInterface):
+    # Collect this information with the following bash command: udevadm info -q property -n /dev/ttyUSB0
     #usb_id = {"vendor": "0403", "product": "6015", "serial": "D30DQFRW"}  # update if needed
-    usb_id = {"vendor": "0403", "product": "6015", "serial": "D30FJZ4X"}
+    usb_id = {"vendor": USB_VENDOR, "product": USB_PRODUCT, "serial": USB_SERIAL}
     uart_port = None#'/dev/ttyTHS1'
     def __init__(self, shutdown_event):
         self.shutdown_event = shutdown_event
@@ -19,33 +26,33 @@ class imu(IMUInterface):
         self.verbose = False
         self.initialized = False
         self.interval = 0.01
-
+        self.log = logging.getLogger("imu")
         self.count = 0
     def run(self):
-        import setproctitle
-        setproctitle.setproctitle(self.name) 
+        # import setproctitle
+        # setproctitle.setproctitle(self.name) 
 
-        import sys
-        sys.setswitchinterval(0.001)
-        self.start()
-        self.set_priority(priority=99)
-        time.sleep(0.1)
+        # import sys
+        # sys.setswitchinterval(0.001)
+        # self.start()
+        # self.set_priority(priority=99)
+        # time.sleep(0.1)
 
         signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
         while not self.shutdown_event.is_set() and not self.initialized:
             if self.verbose==True:
-                print("[IMU] Attempting initialization...")
+                self.log.info("Attempting initialization...")
             self.initialize()
             if not self.initialized:
-                print("Seeker] Initialization failed - retrying in 1 second")
+                self.log.warning("Initialization failed - retrying in 1 second")
                 time.sleep(1)
 
         while not self.shutdown_event.is_set():
             t0 = time.time()
             if self.initialized and (time.time() - self.t_last_received > 5):
-                print("[IMU] No data in 5 seconds — resetting interface")
+                self.log.warning("No data in 5 seconds — resetting interface")
                 self.reconnect()
                 self.t_last_received = time.time()
                 self.count = 0

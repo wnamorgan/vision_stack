@@ -30,6 +30,18 @@ services:
     privileged: true
     networks:
       - vision
+  imu:
+    build:
+      context: ./services/imu
+    env_file: ./services/imu/.env
+    volumes:
+      - ./services/imu:/app
+      - /dev:/dev
+    ipc: host
+    privileged: true
+    networks:
+      - vision
+
 
   gateway:
     build:
@@ -40,8 +52,11 @@ services:
     environment:
       ZMQ_CONNECT_SUB_CAMERA_HOST: camera
       ZMQ_CONNECT_SUB_CAMERA_PORT: 5555
+      ZMQ_CONNECT_SUB_IMU_HOST: imu
+      ZMQ_CONNECT_SUB_IMU_PORT: 5530
     depends_on:
       - camera
+      - imu
     ipc: host
     networks:
       vision: {}
