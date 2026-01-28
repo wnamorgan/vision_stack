@@ -36,6 +36,9 @@ def run():
                 "port": int(intent["value"]["port"]),
             }
             pub.send_json(cmd)
+        elif intent.get("type") in ("IMU_ADD_SINK", "IMU_REMOVE_SINK"):
+            # pass through IMU control intents to internal bus
+            pub.send_json(intent)            
         elif intent.get("type") == "RTP_SET_PARAMS":
             # pass through; HostRTP will clamp and apply
             pub.send_json({
