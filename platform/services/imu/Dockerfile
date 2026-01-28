@@ -17,5 +17,5 @@ RUN pip install --no-cache-dir --upgrade pip wheel && \
 WORKDIR /app
 COPY . /app
 
-CMD ["bash", "-lc", "sleep infinity"]
-#CMD ["python3", "app/run_imu.py"]
+#CMD ["bash", "-lc", "sleep infinity"]
+CMD ["python3", "app/run_imu.py"]

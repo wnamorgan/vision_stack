@@ -96,33 +96,33 @@ class IMUInterface(SerialDevice):
 
         try: 
             unpacked = struct.unpack('<6i3Hh', payload[:32])
-            gyro  = [x / 1e5 for x in unpacked[0:3]]     # deg/s
-            accel = [x / 1e6 for x in unpacked[3:6]]     # g
-            counter = unpacked[6]
-            usw     = unpacked[7]
-            vinp    = unpacked[8] / 100.0                # V
-            temp    = unpacked[9] / 10.0                 # °C
+            gyro  = [float(x) / 1e5 for x in unpacked[0:3]]   # deg/s
+            accel = [float(x) / 1e6 for x in unpacked[3:6]]   # g
+            counter = int(unpacked[6])
+            usw     = int(unpacked[7])
+            vinp    = float(unpacked[8]) / 100.0              # V
+            temp    = float(unpacked[9]) / 10.0               # °C
 
-            payload = {
-                "timestamp": timestamp-self.t0,
-                "gyro": gyro,
-                "accel": accel,
-                "counter": counter,
-                "usw": usw,
-                "vinp": vinp,
-                "temp": temp
+            sample = {
+                "timestamp": float(timestamp - self.t0),
+                "gyro": gyro,          # list[float]
+                "accel": accel,        # list[float]
+                "counter": counter,    # int
+                "usw": usw,            # int
+                "vinp": vinp,          # float
+                "temp": temp,          # float
             }
 
             if self.low_rate: # let child class deal with publishing
                 with self.deque_lock:
-                    self.sample_deque.append(payload)
+                    self.sample_deque.append(sample)
 
             else: # publish high-rate data
                 msg = {
                     "tx": self.name,
                     "rx": "*",
                     "topic": "gaa",
-                    "payload": payload
+                    "payload": sample
                 }
                 #print(f"[imu_interface] timestamp = ({msg['payload']['timestamp']}, {msg['payload']['counter']})")
                 self.publish(msg)

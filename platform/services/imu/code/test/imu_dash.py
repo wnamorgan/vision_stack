@@ -2,8 +2,6 @@ import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
 import plotly.graph_objs as go
-import multiprocessing
-import time
 import threading
 import queue
 
@@ -24,13 +22,17 @@ history = {
 def dequeue_loop():
     while True:
         try:
+            # New message format ONLY:
+            # {"tx": "...", "rx": "*", "topic": "gaa", "payload": {"timestamp":..., "gyro":[...], "accel":[...], ...}}
             msg = message_queue.get(timeout=1)
-            if msg.get("topic") != "gaa":
+
+            if msg["topic"] != "gaa":
                 continue
 
-            ts         = msg["payload"]["timestamp"]
-            gx, gy, gz = msg["payload"]["gyro"]
-            ax, ay, az = msg["payload"]["accel"]
+            p = msg["payload"]
+            ts = p["timestamp"]
+            gx, gy, gz = p["gyro"]
+            ax, ay, az = p["accel"]
 
             history["timestamps"].append(ts)
             history["gyro_x"].append(gx)

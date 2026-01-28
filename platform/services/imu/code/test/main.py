@@ -11,7 +11,12 @@ def monitor(queue):
     while True:
         try:
             msg = queue.get(timeout=1)
-            print(f"[main] Message received at {time.time():.3f} with imu timestamp {msg['timestamp']:.3f}")
+            payload = msg.get("payload", msg)
+            ts = payload.get("timestamp", None)
+            print(
+                f"[main] Message received at {time.time():.3f} "
+                f"topic={msg.get('topic','?')} imu_ts={ts if ts is not None else 'NA'}"
+            )
         except multiprocessing.queues.Empty:
             continue
         except KeyboardInterrupt:

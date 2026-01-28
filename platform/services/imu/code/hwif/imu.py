@@ -8,7 +8,7 @@ from hwif.imu_interface import IMUInterface  # adjust as needed
 import logging
 
 USB_VENDOR  = os.getenv("USB_VENDOR", "0403")
-USB_PRODUCT = os.getenv("USB_PRODUCT", "0615")
+USB_PRODUCT = os.getenv("USB_PRODUCT", "6015")
 USB_SERIAL  = os.getenv("USB_SERIAL", "D30FJZ4X")
 
 
@@ -68,17 +68,18 @@ class imu(IMUInterface):
         time.sleep(0.1)
 
 
+
     def aggregation_loop(self):
         with self.deque_lock:
             N = len(self.sample_deque)
-            if N==0: 
+            if N==0:
                 return
             gyro  = [0.0, 0.0, 0.0]
             accel = [0.0, 0.0, 0.0]
             temp  = 0.0
             for payload in self.sample_deque:
                 gyro  = [a+b for a,b in zip(gyro, payload['gyro'] )]
-                accel = [a+b for a,b in zip(accel,payload['accel'])] 
+                accel = [a+b for a,b in zip(accel,payload['accel'])]
                 temp  = temp + payload["temp"]
             self.sample_deque.clear()
         gyro  = [x/N for x in gyro]
@@ -100,6 +101,7 @@ class imu(IMUInterface):
         }
         #print(f"[imu_interface] timestamp = ({msg['payload']['timestamp']}, {msg['payload']['counter']}, {N}, {temp})")
         self.publish(msg)
+    
 
 
     def initialize(self): # placeholder 

@@ -5,13 +5,22 @@ import time
 host = os.getenv("ZMQ_CONNECT_SUB_FRAME_META_HOST", "localhost")
 port = int(os.getenv("ZMQ_CONNECT_SUB_FRAME_META_PORT", "5562"))
 ZMQ_META_SUB = f"tcp://{host}:{port}"
+
 host = os.getenv("ZMQ_CONNECT_SUB_CMD_HOST", "localhost")
 port = int(os.getenv("ZMQ_CONNECT_SUB_CMD_PORT", "5561"))
 ZMQ_INTERNAL_SUB = f"tcp://{host}:{port}"
-UDP_META_PORT = int(os.getenv("UDP_META_PORT", "9100"))
+
 host = os.getenv("ZMQ_CONNECT_SUB_RTP_USAGE_HOST", "localhost")
 port = int(os.getenv("ZMQ_CONNECT_SUB_RTP_USAGE_PORT", "5563"))
 ZMQ_RTP_USAGE_SUB = f"tcp://{host}:{port}"
+
+host = os.getenv("ZMQ_CONNECT_SUB_IMU_HOST", "imu")
+port = int(os.getenv("ZMQ_CONNECT_SUB_IMU_PORT", "5530"))
+ZMQ_IMU_SUB = f"tcp://{host}:{port}"
+
+UDP_META_PORT = int(os.getenv("UDP_META_PORT", "9100"))
+UDP_IMU_PORT  = int(os.getenv("UDP_IMU_PORT",  "9101"))
+
 LINK_USAGE_HZ = float(os.getenv("LINK_USAGE_HZ", "1"))
 
 logging.basicConfig(level=logging.INFO)
@@ -33,10 +42,16 @@ def run():
     sub_rtp.connect(ZMQ_RTP_USAGE_SUB)
     sub_rtp.setsockopt_string(zmq.SUBSCRIBE, "")
 
+    sub_imu = ctx.socket(zmq.SUB)
+    sub_imu.connect(ZMQ_IMU_SUB)
+    sub_imu.setsockopt_string(zmq.SUBSCRIBE, "")
 
     udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    dests = set()         # {(ip, port)}
+    # Separate sink sets so enabling RTP/meta does NOT implicitly enable IMU.
+    dests_meta = set()    # {(ip, port)} for meta/link-usage/etc (UDP_META_PORT)
+    dests_imu  = set()    # {(ip, port)} for IMU (UDP_IMU_PORT)
+
     dests_lock = threading.Lock()
 
 
@@ -89,7 +104,27 @@ def run():
             payload = json.dumps(out).encode("utf-8")
 
             with dests_lock:
-                targets = list(dests)
+                targets = list(dests_meta)
+            for (ip, port) in targets:
+                udp.sendto(payload, (ip, port))
+                _udp_add_bytes(len(payload))
+
+ 
+    def imu_loop():
+        """
+        Drain IMU ZMQ stream continuously.
+        Only UDP-send when IMU sinks exist.
+        IMPORTANT: UDP payload must be pure JSON bytes (client udp_rx does json.loads(data)).
+        """
+        while True:
+            parts = sub_imu.recv_multipart()
+            payload = parts[-1]  # JSON bytes from run_imu.py PUB
+
+            with dests_lock:
+                targets = list(dests_imu)
+            if not targets:
+                continue
+
             for (ip, port) in targets:
                 udp.sendto(payload, (ip, port))
                 _udp_add_bytes(len(payload))
@@ -98,25 +133,48 @@ def run():
     def internal_loop():
         while True:
             cmd = sub_int.recv_json()
-            if cmd.get("type") == "RTP_ADD_SINK":
-                ip = cmd.get("ip")
-                if ip:
-                    with dests_lock:
-                        dests.add((ip, UDP_META_PORT))
-                    log.info("Added meta dest %s:%d", ip, UDP_META_PORT)
+            ctype = cmd.get("type")
+            ip = cmd.get("ip")
+            if not ip:
+                continue
+
+            # Existing: RTP request enables META sink (not IMU).
+            if ctype == "RTP_ADD_SINK":
+                with dests_lock:
+                    dests_meta.add((ip, UDP_META_PORT))
+                log.info("Added META sink %s:%d (via RTP_ADD_SINK)", ip, UDP_META_PORT)
+
+            # Optional symmetry for toggles
+            elif ctype == "RTP_REMOVE_SINK":
+                with dests_lock:
+                    dests_meta.discard((ip, UDP_META_PORT))
+                log.info("Removed META sink %s:%d (via RTP_REMOVE_SINK)", ip, UDP_META_PORT)
+
+            # New: explicit IMU gating
+            elif ctype == "IMU_ADD_SINK":
+                with dests_lock:
+                    dests_imu.add((ip, UDP_IMU_PORT))
+                log.info("Added IMU sink %s:%d (via IMU_ADD_SINK)", ip, UDP_IMU_PORT)
+
+            elif ctype == "IMU_REMOVE_SINK":
+                with dests_lock:
+                    dests_imu.discard((ip, UDP_IMU_PORT))
+                log.info("Removed IMU sink %s:%d (via IMU_REMOVE_SINK)", ip, UDP_IMU_PORT)
+ 
 
     def meta_loop():
         while True:
             meta = sub_meta.recv_json()
             payload = json.dumps(meta).encode("utf-8")
             with dests_lock:
-                targets = list(dests)
+                targets = list(dests_meta)
             for (ip, port) in targets:
                 udp.sendto(payload, (ip, port))
 
     threading.Thread(target =     internal_loop, daemon=True).start()
     threading.Thread(target =    rtp_usage_loop, daemon=True).start()
     threading.Thread(target = usage_report_loop, daemon=True).start()
+    threading.Thread(target =         imu_loop, daemon=True).start()
 
     log.info("UDP meta TX online (internal thread started)")
 
