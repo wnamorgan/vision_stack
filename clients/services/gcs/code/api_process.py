@@ -166,6 +166,14 @@ def run() -> None:
         sock.send_json(intent.normalize())
         return {"status": "sent", "ip": gcs_ip, "port": rtp_port}
 
+    @app.post("/control/stream_unsubscribe")
+    def stream_unsubscribe(req: HelloReq):
+        gcs_ip = get_local_ip()
+        rtp_port = int(os.getenv("RTP_RX_LISTEN_PORT", "5004"))
+        intent = ControlIntent(type="RTP_UNSUBSCRIBE", value={"ip": gcs_ip, "port": rtp_port})
+        sock.send_json(intent.normalize())
+        return {"status": "sent", "ip": gcs_ip, "port": rtp_port}
+
     @app.post("/control/pixel_click")
     def pixel_click(req: PixelClickReq):
         payload: Dict[str, Any] = req.model_dump()

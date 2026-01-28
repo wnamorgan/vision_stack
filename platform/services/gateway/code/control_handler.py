@@ -36,6 +36,13 @@ def run():
                 "port": int(intent["value"]["port"]),
             }
             pub.send_json(cmd)
+        elif intent.get("type") == "RTP_UNSUBSCRIBE":
+            cmd = {
+                "type": "RTP_REMOVE_SINK",
+                "ip": intent["value"]["ip"],
+                "port": int(intent["value"]["port"]),
+            }
+            pub.send_json(cmd)
         elif intent.get("type") in ("IMU_ADD_SINK", "IMU_REMOVE_SINK"):
             # pass through IMU control intents to internal bus
             pub.send_json(intent)            

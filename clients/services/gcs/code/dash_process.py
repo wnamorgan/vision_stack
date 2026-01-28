@@ -76,6 +76,7 @@ def run():
     app.layout = html.Div(
         style=panel_style,
         children=[
+            dcc.Store(id="stream_state", data={"active": False}),
             # LEFT: controls
             html.Div(
                 style={
@@ -99,7 +100,7 @@ def run():
                                 style={"display": "flex", "gap": "10px", "alignItems": "center"},
                                 children=[
                                     html.Button(
-                                        "Stream Video",
+                                        "Start Stream",
                                         id="stream_btn",
                                         style={"padding": "10px 12px", "borderRadius": "10px"},
                                     ),
@@ -157,16 +158,33 @@ def run():
     )
 
 
-    @app.callback(Output("stream_status", "children"), Input("stream_btn", "n_clicks"))
-    def stream(n):
-        if not n:
-            return ""
-        r = requests.post(
-            f"http://127.0.0.1:{HTTP_BIND_CONTROL_PORT}/control/stream_subscribe",
-            json={"value": n},
-            timeout=2.0,
-        )
-        return r.json()
+    @app.callback(
+        Output("stream_status", "children"),
+        Output("stream_btn", "children"),
+        Output("stream_state", "data"),
+        Input("stream_btn", "n_clicks"),
+        State("stream_state", "data"),
+    )
+    def stream(n_clicks, state):
+        if not n_clicks:
+            return "", "Start Stream", state
+
+        active = bool(state.get("active")) if isinstance(state, dict) else False
+
+        if not active:
+            r = requests.post(
+                f"http://127.0.0.1:{HTTP_BIND_CONTROL_PORT}/control/stream_subscribe",
+                json={"value": n_clicks},
+                timeout=2.0,
+            )
+            return r.json(), "Stop Stream", {"active": True}
+        else:
+            r = requests.post(
+                f"http://127.0.0.1:{HTTP_BIND_CONTROL_PORT}/control/stream_unsubscribe",
+                json={"value": n_clicks},
+                timeout=2.0,
+            )
+            return r.json(), "Start Stream", {"active": False}
 
     @app.callback(
         Output("video_readout", "children"),

@@ -442,6 +442,20 @@ class HostRTP:
             self.rtp_sinks[(ip, port)] = (pipeline, appsrc)
             self.sinks_ready.set()
 
+    def _remove_rtp_sink(self, ip: str, port: int):
+        with self.sink_lock:
+            pipeline, appsrc = self.rtp_sinks.pop((ip, port), (None, None))
+            if not self.rtp_sinks:
+                self.sinks_ready.clear()
+        if pipeline is None:
+            self.log.info("RTP sink %s:%d not found, ignoring", ip, port)
+            return
+        self.log.info("Removing RTP sink %s:%d", ip, port)
+        try:
+            pipeline.set_state(Gst.State.NULL)
+        except Exception:
+            pass
+
     def _rebuild_all_sinks(self):
         # capture destinations + teardown old pipelines
         with self.sink_lock:
