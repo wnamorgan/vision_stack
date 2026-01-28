@@ -21,6 +21,8 @@ ZMQ_IMU_SUB = f"tcp://{host}:{port}"
 
 UDP_META_PORT = int(os.getenv("UDP_META_PORT", "9100"))
 UDP_IMU_PORT  = int(os.getenv("UDP_IMU_PORT",  "9101"))
+UDP_TELEM_PORT = int(os.getenv("UDP_TELEM_PORT", "9102"))
+UDP_TELEM_DESTS = os.getenv("UDP_TELEM_DESTS", "")
 
 LINK_USAGE_HZ = float(os.getenv("LINK_USAGE_HZ", "1"))
 
@@ -61,6 +63,26 @@ def run():
     usage_lock = threading.Lock()
     udp_bytes = 0
     latest_rtp = {"bps": 0, "bytes": 0, "dt_s": 0.0, "sinks_ok": 0, "sinks_total": 0}
+
+    def _parse_telem_dests(s: str):
+        out = []
+        for part in (s or "").split(","):
+            p = part.strip()
+            if not p:
+                continue
+            if ":" in p:
+                ip, port_s = p.rsplit(":", 1)
+                try:
+                    port_i = int(port_s)
+                except ValueError:
+                    continue
+            else:
+                ip = p
+                port_i = UDP_TELEM_PORT
+            out.append((ip, port_i))
+        return out
+
+    telem_dests = _parse_telem_dests(UDP_TELEM_DESTS)
 
     def _udp_add_bytes(n: int):
         nonlocal udp_bytes
@@ -111,8 +133,7 @@ def run():
             }
             payload = json.dumps(out).encode("utf-8")
 
-            with dests_lock:
-                targets = list(dests_meta)
+            targets = list(telem_dests)
             for (ip, port) in targets:
                 udp_send_q.put((payload, (ip, port)))
 
