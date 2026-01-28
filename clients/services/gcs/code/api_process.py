@@ -37,7 +37,7 @@ def get_local_ip() -> str:
     Best-effort local IP selection for the machine/container running this API.
     Prefer explicit env override; otherwise pick a non-loopback address.
     """
-    env_ip = os.getenv("GCS_IP") or os.getenv("LOCAL_IP")
+    env_ip = os.getenv("LOCAL_IP")
     if env_ip:
         return env_ip
 
@@ -50,7 +50,7 @@ def get_local_ip() -> str:
         pass
 
     # UDP "connect" trick (no packets sent) to select the source IP the OS would
-    # use to reach the platform gateway. This avoids hardcoding GCS_IP per site.    
+    # use to reach the platform gateway. This avoids hardcoding LOCAL_IP per site.
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         # Prefer routing to the configured gateway destination if present.

@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     ipc: host
     env_file: ./services/gateway/.env
+    environment:
+      LOCAL_IP: ${LOCAL_IP}
     ports:
       - "5004:5004/udp"
       - "9100:9100/udp"
@@ -16,8 +18,9 @@ services:
     build: ./services/gcs
     restart: unless-stopped
     ipc: host
-    env_file: ./services/gcs/.env
+    env_file: ./services/gcs/.env      
     environment:
+      LOCAL_IP: ${LOCAL_IP}
       HTTP_PUBLIC_HOST: 127.0.0.1
       HTTP_PUBLIC_VIDEO_PORT: 8000
       HTTP_PUBLIC_CONTROL_PORT: 8100
@@ -30,3 +33,18 @@ services:
       - ./services/gcs/code:/app/code
       - ./services/gcs/static:/app/static
     command: ["python","run_gcs.py"]
+
+  imu_dash:
+    build: ./services/imu_dash
+    restart: unless-stopped
+    ipc: host
+    env_file: ./services/imu_dash/.env
+    environment:
+      LOCAL_IP: ${LOCAL_IP}
+    ports:
+      - "8200:8200"
+      - "8201:8201"
+    volumes:
+      - ./services/imu_dash/app:/app
+      - ./services/imu_dash/code:/app/code
+    command: ["python","run_imu_dash.py"]
