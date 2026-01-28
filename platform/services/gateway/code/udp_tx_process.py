@@ -1,4 +1,5 @@
 import os, json, socket, threading, logging
+import queue
 import zmq
 import time
 
@@ -47,6 +48,7 @@ def run():
     sub_imu.setsockopt_string(zmq.SUBSCRIBE, "")
 
     udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_send_q: queue.Queue[tuple[bytes, tuple[str, int]]] = queue.Queue(maxsize=10000)
 
     # Separate sink sets so enabling RTP/meta does NOT implicitly enable IMU.
     dests_meta = set()    # {(ip, port)} for meta/link-usage/etc (UDP_META_PORT)
@@ -64,6 +66,12 @@ def run():
         nonlocal udp_bytes
         with usage_lock:
             udp_bytes += int(n)
+
+    def udp_sender_loop():
+        while True:
+            payload, target = udp_send_q.get()
+            udp.sendto(payload, target)
+            _udp_add_bytes(len(payload))
 
     def rtp_usage_loop():
         nonlocal latest_rtp
@@ -106,29 +114,7 @@ def run():
             with dests_lock:
                 targets = list(dests_meta)
             for (ip, port) in targets:
-                udp.sendto(payload, (ip, port))
-                _udp_add_bytes(len(payload))
-
- 
-    def imu_loop():
-        """
-        Drain IMU ZMQ stream continuously.
-        Only UDP-send when IMU sinks exist.
-        IMPORTANT: UDP payload must be pure JSON bytes (client udp_rx does json.loads(data)).
-        """
-        while True:
-            parts = sub_imu.recv_multipart()
-            payload = parts[-1]  # JSON bytes from run_imu.py PUB
-
-            with dests_lock:
-                targets = list(dests_imu)
-            if not targets:
-                continue
-
-            for (ip, port) in targets:
-                udp.sendto(payload, (ip, port))
-                _udp_add_bytes(len(payload))
-
+                udp_send_q.put((payload, (ip, port)))
 
     def internal_loop():
         while True:
@@ -169,8 +155,28 @@ def run():
             with dests_lock:
                 targets = list(dests_meta)
             for (ip, port) in targets:
-                udp.sendto(payload, (ip, port))
+                udp_send_q.put((payload, (ip, port)))
 
+    def imu_loop():
+        """
+        Drain IMU ZMQ stream continuously.
+        Only UDP-send when IMU sinks exist.
+        IMPORTANT: UDP payload must be pure JSON bytes (client udp_rx does json.loads(data)).
+        """
+        while True:
+            parts = sub_imu.recv_multipart()
+            payload = parts[-1]  # JSON bytes from run_imu.py PUB
+
+            with dests_lock:
+                targets = list(dests_imu)
+            if not targets:
+                continue
+
+            for (ip, port) in targets:
+                udp_send_q.put((payload, (ip, port)))
+
+
+    threading.Thread(target =   udp_sender_loop, daemon=True).start()
     threading.Thread(target =     internal_loop, daemon=True).start()
     threading.Thread(target =    rtp_usage_loop, daemon=True).start()
     threading.Thread(target = usage_report_loop, daemon=True).start()

@@ -108,6 +108,8 @@ class HostRTP:
         # initial sink
         #self._add_rtp_sink(RTP_TX_DST_IP, RTP_TX_DST_PORT)
 
+        self.info_period = 10.0
+
     # ----------------------------
     # Public controls
     # ----------------------------
@@ -336,7 +338,7 @@ class HostRTP:
             # compute/debug FPS
             count += 1
             now = time.time()
-            if now - last >= 1.0:
+            if now - last >= self.info_period:
                 fps = count / (now - last)
                 self.log.info("[TX] FPS=%.1f", fps)
                 count = 0
@@ -363,7 +365,7 @@ class HostRTP:
                         self.sinks_ready.set()
                 if not has_sinks:
                     now_s = time.monotonic()
-                    if now_s - self._no_sink_last_log_s > 2.0:
+                    if now_s - self._no_sink_last_log_s > self.info_period:
                         self.log.info("No RTP sinks (idle). Waiting for RTP_SUBSCRIBE...")
                         self._no_sink_last_log_s = now_s
                     self.sinks_ready.wait(timeout=0.5)

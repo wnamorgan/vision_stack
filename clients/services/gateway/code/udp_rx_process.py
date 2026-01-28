@@ -3,6 +3,7 @@ import json
 import time
 import socket
 import threading
+import queue
 import logging
 from dataclasses import dataclass
 from typing import Optional, List
@@ -84,6 +85,8 @@ def run():
     pub.setsockopt(zmq.SNDHWM, int(os.getenv("ZMQ_SNDHWM", "10")))
     pub.bind(zmq_pub)
 
+    pub_q: queue.Queue[dict] = queue.Queue(maxsize=10000)
+
     log.info("UDP RX online -> ZMQ PUB %s", zmq_pub)
     for b in bindings:
         log.info("  binding: name=%s udp=%s:%d filter_type=%s", b.name, bind_host, b.port, b.filter_type)
@@ -113,6 +116,15 @@ def run():
             msg["_udp_rx_ts"] = time.time()
 
             try:
+                pub_q.put_nowait(msg)
+            except queue.Full:
+                # Drop if congested; this is a live stream adapter
+                pass
+
+    def pub_loop():
+        while True:
+            msg = pub_q.get()
+            try:
                 pub.send_json(msg, flags=zmq.NOBLOCK)
             except zmq.Again:
                 # Drop if congested; this is a live stream adapter
@@ -121,6 +133,7 @@ def run():
     # One thread per port (simple + explicit)
     for b in bindings:
         threading.Thread(target=rx_loop, args=(b,), daemon=True).start()
+    threading.Thread(target=pub_loop, daemon=True).start()
 
     # Keep process alive
     while True:
