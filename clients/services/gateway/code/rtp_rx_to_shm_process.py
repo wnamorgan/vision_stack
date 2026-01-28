@@ -155,7 +155,7 @@ def run() -> None:
                 pass
 
         now = time.time()
-        if now - t0 >= 1.0:
+        if now - t0 >= 10.0:
             seq = int(writer.seq[0])
             nb = int(writer.nbytes[0])
             log.info("[RTP->SHM] port=%d fps=%d seq=%d nbytes=%d", RTP_RX_LISTEN_PORT, frames, seq, nb)

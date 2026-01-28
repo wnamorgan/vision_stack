@@ -10,6 +10,7 @@ services:
     ports:
       - "5004:5004/udp"
       - "9100:9100/udp"
+      - "9101:9101/udp"
     volumes:
       - ./services/gateway:/app
     command: ["python","app/run_gateway.py"]

@@ -1,12 +1,12 @@
 import os
 import socket
 import threading
+from collections import deque
 import logging
 from typing import Optional, Dict, Any
 
 import zmq
 from fastapi import FastAPI
-from fastapi.responses import Response
 import uvicorn
 
 logging.basicConfig(level=logging.INFO)
@@ -26,8 +26,8 @@ ZMQ_TELEM_SUB = f"tcp://{ZMQ_CONNECT_SUB_TELEM_HOST}:{ZMQ_CONNECT_SUB_TELEM_PORT
 UDP_INTENT_DST_IP = os.getenv("UDP_INTENT_DST_IP")
 UDP_INTENT_DST_PORT = int(os.getenv("UDP_INTENT_DST_PORT", "9000"))
 
-_latest_imu: Optional[Dict[str, Any]] = None
 _imu_lock = threading.Lock()
+_imu_history = deque(maxlen=500)
 
 
 def get_local_ip() -> str:
@@ -76,19 +76,15 @@ def run() -> None:
             msg = sub.recv_json()
             if msg.get("topic") is None:
                 continue
-            global _latest_imu
             with _imu_lock:
-                _latest_imu = msg
+                _imu_history.append(msg)
 
     threading.Thread(target=_imu_sub_loop, daemon=True).start()
 
-    @app.get("/imu")
-    def imu():
+    @app.get("/imu/buffer")
+    def imu_buffer():
         with _imu_lock:
-            if _latest_imu is None:
-                return Response(status_code=204)
-            return _latest_imu
-
+            return list(_imu_history)
     @app.post("/imu/start")
     def imu_start():
         ip = get_local_ip()
@@ -101,7 +97,7 @@ def run() -> None:
         push.send_json({"type": "IMU_REMOVE_SINK", "ip": ip})
         return {"ok": True, "ip": ip}
 
-    uvicorn.run(app, host=HTTP_BIND_IMU_API_HOST, port=HTTP_BIND_IMU_API_PORT, log_level="info")
+    uvicorn.run(app, host=HTTP_BIND_IMU_API_HOST, port=HTTP_BIND_IMU_API_PORT, log_level="info",access_log=False)
 
 
 if __name__ == "__main__":

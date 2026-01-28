@@ -43,7 +43,6 @@ def run():
         "borderRadius": "12px",
         "padding": "14px",
         "boxShadow": "0 6px 18px rgba(0,0,0,0.35)",
-        "maxWidth": "420px",
     }
 
     mono_style = {
@@ -72,11 +71,18 @@ def run():
                 ],
             ),
             html.Div(
-                style={**card_style, "marginTop": "16px"},
+                style={**card_style, "marginTop": "16px", "width": "95%", "maxWidth": "95%"},
                 children=[
                     html.Div("IMU Live Plot", style={"fontWeight": "650", "marginBottom": "8px"}),
-                    dcc.Graph(id="imu-plot", style={"height": "420px"}),
+                    dcc.Graph(id="imu-plot", style={"height": "620px"}),
                     dcc.Interval(id="imu-tick", interval=500, n_intervals=0),
+                ],
+            ),
+            html.Div(
+                style={**card_style, "marginTop": "16px", "width": "95%", "maxWidth": "95%"},
+                children=[
+                    html.Div("IMU Timestamp Delta CDF", style={"fontWeight": "650", "marginBottom": "8px"}),
+                    dcc.Graph(id="imu-cdf", style={"height": "320px"}),
                 ],
             ),
         ],
@@ -97,17 +103,25 @@ def run():
         except Exception as e:
             return f"Error: {e}"
 
-    @app.callback(Output("imu-plot", "figure"), Input("imu-tick", "n_intervals"))
+    @app.callback(
+        Output("imu-plot", "figure"),
+        Output("imu-cdf", "figure"),
+        Input("imu-tick", "n_intervals"),
+    )
     def update_plot(_n):
         try:
-            r = requests.get(f"{API_BASE}/imu", timeout=1.0)
+            r = requests.get(f"{API_BASE}/imu/buffer", timeout=1.0)
             if r.status_code == 200:
-                msg = r.json()
-                payload = msg.get("payload", {})
-                ts = payload.get("timestamp")
-                gyro = payload.get("gyro")
-                accel = payload.get("accel")
-                if ts is not None and gyro and accel:
+                samples = r.json()
+                for key in history:
+                    history[key].clear()
+                for msg in samples:
+                    payload = msg.get("payload", {})
+                    ts = payload.get("timestamp")
+                    gyro = payload.get("gyro")
+                    accel = payload.get("accel")
+                    if ts is None or not gyro or not accel:
+                        continue
                     history["timestamps"].append(ts)
                     history["gyro_x"].append(gyro[0])
                     history["gyro_y"].append(gyro[1])
@@ -115,13 +129,10 @@ def run():
                     history["accel_x"].append(accel[0])
                     history["accel_y"].append(accel[1])
                     history["accel_z"].append(accel[2])
-
-                    for key in history:
-                        history[key] = history[key][-500:]
         except Exception:
             pass
 
-        return {
+        fig_line = {
             "data": [
                 go.Scatter(x=history["timestamps"], y=history["gyro_x"], mode="lines", name="Gyro X"),
                 go.Scatter(x=history["timestamps"], y=history["gyro_y"], mode="lines", name="Gyro Y"),
@@ -132,14 +143,39 @@ def run():
             ],
             "layout": go.Layout(
                 template="plotly_dark",
+                title="Gyro & Accel (IMU)",
                 xaxis_title="Time (s)",
                 yaxis_title="Value",
-                margin={"l": 40, "r": 10, "t": 20, "b": 40},
-                height=420,
-                legend={"orientation": "h"},
+                margin={"l": 40, "r": 10, "t": 30, "b": 40},
             ),
         }
 
+        dts = []
+        if len(history["timestamps"]) > 1:
+            for i in range(1, len(history["timestamps"])):
+                dts.append(history["timestamps"][i] - history["timestamps"][i - 1])
+
+        dts = [dt for dt in dts if dt > 0]
+        dts.sort()
+        n = len(dts)
+        cdf_y = [(i + 1) / n for i in range(n)] if n else []
+
+        fig_cdf = {
+            "data": [
+                go.Scatter(x=dts, y=cdf_y, mode="lines", name="CDF"),
+            ],
+            "layout": go.Layout(
+                template="plotly_dark",
+                title="Timestamp Delta CDF (s)",
+                xaxis_title="Delta (s)",
+                xaxis_type="log",
+                xaxis_range=[-4, -2],
+                yaxis_title="CDF",
+                margin={"l": 40, "r": 10, "t": 30, "b": 40},
+            ),
+        }
+
+        return fig_line, fig_cdf
     app.run(host=HTTP_BIND_IMU_DASH_HOST, port=HTTP_BIND_IMU_DASH_PORT, debug=False)
 
 
