@@ -495,6 +495,12 @@ class HostRTP:
                 ok = self._rtp_sinks_ok
                 total = self._rtp_sinks_total
                 self._rtp_bytes = 0
+            with self.sink_lock:
+                current_total = len(self.rtp_sinks)
+            if current_total != total:
+                total = current_total
+            if total == 0:
+                ok = 0
  
             bps = int((b * 8) / dt) if dt > 0 else 0
             msg = {

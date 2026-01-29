@@ -27,6 +27,8 @@ UDP_INTENT_DST_IP = os.getenv("UDP_INTENT_DST_IP")
 UDP_INTENT_DST_PORT = int(os.getenv("UDP_INTENT_DST_PORT", "9000"))
 
 _imu_lock = threading.Lock()
+_link_lock = threading.Lock()
+_latest_link_usage: Optional[Dict[str, Any]] = None
 _imu_history = deque(maxlen=500)
 
 
@@ -74,6 +76,14 @@ def run() -> None:
         log.info("[IMU_API] ZMQ SUB connected to %s", ZMQ_TELEM_SUB)
         while True:
             msg = sub.recv_json()
+            if msg.get("type") == "LINK_USAGE":
+                val = msg.get("value")
+                if isinstance(val, dict):
+                    global _latest_link_usage
+                    with _link_lock:
+                        _latest_link_usage = val
+                continue
+
             if msg.get("topic") is None:
                 continue
             with _imu_lock:
@@ -85,6 +95,13 @@ def run() -> None:
     def imu_buffer():
         with _imu_lock:
             return list(_imu_history)
+
+    @app.get("/link_usage")
+    def link_usage():
+        with _link_lock:
+            if _latest_link_usage is None:
+                return {}
+            return _latest_link_usage
     @app.post("/imu/start")
     def imu_start():
         ip = get_local_ip()

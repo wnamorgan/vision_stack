@@ -3,7 +3,7 @@ import logging
 import requests
 import dash
 from dash import html, dcc
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
 
 HTTP_BIND_IMU_DASH_HOST = os.getenv("HTTP_BIND_IMU_DASH_HOST", "0.0.0.0")
@@ -56,15 +56,17 @@ def run():
         style=panel_style,
         children=[
             html.H2("IMU Dev Dash"),
+            dcc.Store(id="imu_state", data={"active": False}),
             html.Div(
                 style=card_style,
                 children=[
-                    html.Div("IMU Stream Control", style={"fontWeight": "650", "marginBottom": "8px"}),
+                    html.Div("Connection", style={"fontWeight": "650", "marginBottom": "8px"}),
+                    dcc.Interval(id="link_tick", interval=1000, n_intervals=0),
                     html.Div(
-                        style={"display": "flex", "gap": "10px"},
+                        style={"display": "flex", "gap": "10px", "alignItems": "center"},
                         children=[
-                            html.Button("Start IMU", id="imu_start", style={"padding": "10px 12px"}),
-                            html.Button("Stop IMU", id="imu_stop", style={"padding": "10px 12px"}),
+                            html.Button("Start IMU", id="imu_btn", style={"padding": "10px 12px"}),
+                            html.Div(id="link_usage", style={**mono_style, "margin": "0"}),
                         ],
                     ),
                     html.Div(id="imu_status", style={"marginTop": "10px", **mono_style}),
@@ -88,20 +90,47 @@ def run():
         ],
     )
 
-    @app.callback(Output("imu_status", "children"), Input("imu_start", "n_clicks"), Input("imu_stop", "n_clicks"))
-    def handle_buttons(n_start, n_stop):
-        ctx = dash.callback_context
-        if not ctx.triggered:
-            return ""
-        btn_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    @app.callback(
+        Output("imu_status", "children"),
+        Output("imu_btn", "children"),
+        Output("imu_state", "data"),
+        Input("imu_btn", "n_clicks"),
+        State("imu_state", "data"),
+    )
+    def handle_buttons(n_clicks, state):
+        if not n_clicks:
+            return "", "Start IMU", state
+
+        active = bool(state.get("active")) if isinstance(state, dict) else False
         try:
-            if btn_id == "imu_start":
+            if not active:
                 r = requests.post(f"{API_BASE}/imu/start", timeout=2.0)
+                return r.json(), "Stop IMU", {"active": True}
             else:
                 r = requests.post(f"{API_BASE}/imu/stop", timeout=2.0)
-            return r.json()
+                return r.json(), "Start IMU", {"active": False}
         except Exception as e:
-            return f"Error: {e}"
+            return f"Error: {e}", "Start IMU", {"active": False}
+
+    @app.callback(Output("link_usage", "children"), Input("link_tick", "n_intervals"))
+    def show_link(_n):
+        try:
+            r = requests.get(f"{API_BASE}/link_usage", timeout=0.5)
+            if r.status_code == 204:
+                return ""
+            if r.status_code != 200:
+                return f"link_usage: HTTP {r.status_code}"
+            v = r.json()
+        except Exception as e:
+            return f"link_usage: {e}"
+
+        rtp_bps = int(v.get("rtp_bps", 0) or 0)
+        udp_bps = int(v.get("udp_bps", 0) or 0)
+        rtp_mbps = rtp_bps / 1_000_000.0
+        udp_mbps = udp_bps / 1_000_000.0
+        ok = int(v.get("rtp_sinks_ok", 0) or 0)
+        total = int(v.get("rtp_sinks_total", 0) or 0)
+        return f"RTP {rtp_mbps:.1f} Mbps (sinks {ok}/{total}) | UDP {udp_mbps:.2f} Mbps"
 
     @app.callback(
         Output("imu-plot", "figure"),
