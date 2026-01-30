@@ -36,12 +36,24 @@ def create_engine(model_path, engine_path, device: int = 0, imgsz: int = 640):
         imgsz=imgsz,
     )
 
-    # After exporting, get the correct engine name based on FP16 flag
+    # After exporting, rename the generated .engine file to include precision suffix
     engine_filename = f"{engine_path.stem}_{'FP16' if FP16 else 'FP32'}{engine_path.suffix}"
     engine_path = engine_path.with_name(engine_filename)
 
-    # Rename the engine file to include _FP16 or _FP32
-    model.model.save(engine_path)
+    generated_engine = model_path.with_suffix(".engine")
+    if generated_engine.exists() and generated_engine != engine_path:
+        generated_engine.replace(engine_path)
+        log.info("[create_engine] Renamed engine to %s", engine_path)
+    elif engine_path.exists():
+        log.info("[create_engine] Engine already at %s", engine_path)
+    else:
+        # Best-effort: find any engine with the model stem prefix
+        candidates = sorted(model_path.parent.glob(f"{model_path.stem}*.engine"))
+        if candidates:
+            candidates[0].replace(engine_path)
+            log.info("[create_engine] Renamed engine to %s", engine_path)
+        else:
+            log.warning("[create_engine] No engine file found to rename.")
 
     # Delete the intermediate ONNX file if it exists
     onnx_path = model_path.with_suffix(".onnx")
