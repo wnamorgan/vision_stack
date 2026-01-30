@@ -6,7 +6,7 @@ from ultralytics import YOLO
 
 IMG_SIZE    = 640
 DEVICE      = 0
-FP16        = True
+FP16        = False
 USE_ENGINE  = True
 
 
@@ -36,9 +36,6 @@ def create_engine(model_path, engine_path, device: int = 0, imgsz: int = 640):
         imgsz=imgsz,
     )
 
-    # After exporting, rename the generated .engine file to include precision suffix
-    engine_filename = f"{engine_path.stem}_{'FP16' if FP16 else 'FP32'}{engine_path.suffix}"
-    engine_path = engine_path.with_name(engine_filename)
 
     generated_engine = model_path.with_suffix(".engine")
     if generated_engine.exists() and generated_engine != engine_path:
