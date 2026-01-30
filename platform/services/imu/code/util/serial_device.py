@@ -69,6 +69,8 @@ class SerialDevice(PubSub, ABC):
     # Port discovery / open                                              #
     # ------------------------------------------------------------------ #
     def _block_until_port_ready(self):
+        warn_period_s = float(os.getenv("IMU_PORT_WARN_PERIOD", "5.0"))
+        last_warn_t = 0.0
         while not self._stop_event.is_set():
             try:
                 port_path = self.port or self.find_ttyusb()
@@ -76,8 +78,14 @@ class SerialDevice(PubSub, ABC):
                 logging.info("Connected to %s (baud %d)", port_path, self.baudrate)
                 return
             except (serial.SerialException, FileNotFoundError, OSError) as exc:
-                logging.warning("Port not ready (%s); retrying in %.1fs",
-                                exc, self.retry_s)
+                now = time.time()
+                if now - last_warn_t >= warn_period_s:
+                    logging.warning(
+                        "Port not ready (%s); retrying in %.1fs",
+                        exc,
+                        self.retry_s,
+                    )
+                    last_warn_t = now
                 time.sleep(self.retry_s)
 
     def _discover_port(self) -> str:

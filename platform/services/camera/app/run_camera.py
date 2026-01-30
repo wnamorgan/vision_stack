@@ -107,18 +107,41 @@ print(Aravis.get_n_devices())
         logging.info("Aravis probe failed: %s", exc)
         return 0
 
+
 def get_aravis():
     if os.getenv("USE_ARAVIS", "0") != "1":
         return (False, None)
 
+    # Reset camera before attempting to use it
+    try:
+        subprocess.run(['arv-tool-0.8', 'control', 'DeviceReset=1'], 
+                      capture_output=True, timeout=5, check=False)
+    except Exception as exc:
+        logging.info("Camera reset failed (may be ok): %s", exc)
+
+    # Poll for camera to be ready (don't just blindly sleep)
+    max_wait = int(os.getenv("ARAVIS_WAIT_MAX_S", "5"))
+    poll_interval = float(os.getenv("ARAVIS_POLL_S", "1.0"))
+    elapsed = 0.0
+    n_devices = 0
+
+    while elapsed < max_wait:
+        time.sleep(poll_interval)
+        elapsed += poll_interval
+        n_devices = _aravis_n_devices_fresh_process()
+        if n_devices > 0:
+            logging.info("Camera ready after %.1fs", elapsed)
+            break
+        logging.info("Waiting for camera... (%.1fs/%.1fs)", elapsed, max_wait)
+    
     try:
         from code.aravis_camera import AravisCamera
     except Exception as exc:
         logging.info("Aravis not available: %s", exc)
         return (False, None)
 
-    if _aravis_n_devices_fresh_process() == 0:
-        logging.info("No Aravis devices found; skipping Aravis init.")
+    if n_devices == 0:
+        logging.info("No Aravis devices found after waiting; skipping Aravis init.")
         return (False, None)
 
     try:
@@ -128,8 +151,6 @@ def get_aravis():
     except Exception as exc:
         logging.warning("Failed to start Aravis camera: %s", exc)
         return (False, None)
-
-
 
 
 

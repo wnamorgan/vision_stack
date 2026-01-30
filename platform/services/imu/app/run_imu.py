@@ -63,6 +63,7 @@ def main():
     pub.bind(ZMQ_IMU_PUB_ENDPOINT)
     log.info(f"IMU ZMQ PUB bound: {ZMQ_IMU_PUB_ENDPOINT}")
 
+    info_period = float(os.getenv("INFO_PERIOD", "10.0"))
     last_log_t = time.time()
     count = 0
 
@@ -82,7 +83,7 @@ def main():
 
             count += 1
             now = time.time()
-            if now - last_log_t >= 10.0:
+            if now - last_log_t >= info_period:
                 hz = count / (now - last_log_t)
                 log.info(f"publishing ~{hz:.1f} Hz")
                 last_log_t = now

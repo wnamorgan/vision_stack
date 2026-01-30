@@ -1,6 +1,7 @@
 import cv2
 import logging
 import os
+import time
 
 from code.camera_base import Camera as BaseCamera
 from code.aravis.camera import Camera as AravisCameraRaw
@@ -11,8 +12,8 @@ class AravisCamera(BaseCamera):
     def __init__(self, cam_args=None):
         self.cam_args = cam_args or {}
         self.cam = AravisCameraRaw(self.cam_args)
-        self._chunk_log_every = 30
-        self._chunk_log_count = 0
+        self._chunk_info_period = float(os.getenv("INFO_PERIOD", "10.0"))
+        self._chunk_last_log_t = time.time()
         self._pop_timeout_s = float(os.getenv("ARAVIS_POP_TIMEOUT_S", "0.5"))
         super().__init__()
 
@@ -60,9 +61,10 @@ class AravisCamera(BaseCamera):
             chunk = self._extract_chunk_data(frame)
             if chunk:
                 metadata.update(chunk)
-                self._chunk_log_count += 1
-                if self._chunk_log_count % self._chunk_log_every == 0:
+                now = time.time()
+                if now - self._chunk_last_log_t >= self._chunk_info_period:
                     logging.info("Chunk data: %s", chunk)
+                    self._chunk_last_log_t = now
         return True, {'image': image, 'metadata': metadata}
 
     def _extract_chunk_data(self, frame):

@@ -8,7 +8,8 @@ gi.require_version ('Aravis', '0.8')
 from gi.repository import Aravis
 
 Aravis.debug_enable('all')
-
+Aravis.enable_interface("USB3Vision")
+Aravis.disable_interface("GigEVision")
 class AravisException(Exception):
     pass
 class Camera():
