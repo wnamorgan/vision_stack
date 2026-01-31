@@ -1,0 +1,3 @@
+norfair
+opencv-python
+numpy
