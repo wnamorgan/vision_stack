@@ -131,6 +131,30 @@ def run():
                             html.Div(id="apply_status", style={"marginTop": "10px", **mono_style}),
                         ],
                     ),
+                    html.Div(
+                        style=card_style,
+                        children=[
+                            html.Div("Tracker Settings", style={"fontWeight": "650", "marginBottom": "8px"}),
+                            dcc.Interval(id="tracker_tick", interval=500, n_intervals=0),
+                            html.Div(
+                                style={"display": "flex", "gap": "10px", "alignItems": "center"},
+                                children=[
+                                    html.Button(
+                                        "Reset",
+                                        id="tracker_reset_btn",
+                                        style={"padding": "10px 12px", "borderRadius": "10px"},
+                                    ),
+                                    html.Button(
+                                        "ACQ_ENABLE",
+                                        id="acq_enable_btn",
+                                        style={"padding": "10px 12px", "borderRadius": "10px"},
+                                    ),
+                                ],
+                            ),
+                            html.Div(id="tracker_action_status", style={"marginTop": "10px", **mono_style}),
+                            html.Div(id="tracker_state", style={"marginTop": "8px", **mono_style}),
+                        ],
+                    ),
                 ],
             ),
             # RIGHT: video (fixed display size; transmitted resolution can change independently)
@@ -253,6 +277,49 @@ def run():
         ok = int(v.get("rtp_sinks_ok", 0) or 0)
         total = int(v.get("rtp_sinks_total", 0) or 0)
         return f"RTP {rtp_mbps:.1f} Mbps (sinks {ok}/{total}) | UDP {udp_mbps:.2f} Mbps"   
+
+    @app.callback(
+        Output("tracker_action_status", "children"),
+        Input("tracker_reset_btn", "n_clicks"),
+        Input("acq_enable_btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def tracker_actions(n_reset, n_enable):
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return ""
+        tid = ctx.triggered[0]["prop_id"].split(".")[0]
+        if tid == "tracker_reset_btn":
+            r = requests.post(
+                f"http://127.0.0.1:{HTTP_BIND_CONTROL_PORT}/control/tracker_reset",
+                json={"value": n_reset},
+                timeout=2.0,
+            )
+            return {"reset": True, "api": r.json()}
+        if tid == "acq_enable_btn":
+            r = requests.post(
+                f"http://127.0.0.1:{HTTP_BIND_CONTROL_PORT}/control/acq_enable",
+                json={"value": n_enable},
+                timeout=2.0,
+            )
+            return {"acq_enable": True, "api": r.json()}
+        return ""
+
+    @app.callback(Output("tracker_state", "children"), Input("tracker_tick", "n_intervals"))
+    def tracker_status(_n):
+        try:
+            r = requests.get(f"http://127.0.0.1:{HTTP_BIND_CONTROL_PORT}/tracker_status", timeout=0.5)
+            if r.status_code != 200:
+                return f"tracker_status: HTTP {r.status_code}"
+            v = r.json()
+        except Exception as e:
+            return f"tracker_status: {e}"
+
+        if not v:
+            return "Tracker State: (none) | ACQ Enabled: (none)"
+        state = v.get("state", v)
+        acq_enabled = v.get("acq_enabled", "(none)")
+        return f"Tracker State: {state} | ACQ Enabled: {acq_enabled}"
 
     app.run(host=HTTP_BIND_DASH_HOST, port=HTTP_BIND_DASH_PORT)
 

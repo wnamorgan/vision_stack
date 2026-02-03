@@ -19,6 +19,10 @@ host = os.getenv("ZMQ_CONNECT_SUB_IMU_HOST", "imu")
 port = int(os.getenv("ZMQ_CONNECT_SUB_IMU_PORT", "5530"))
 ZMQ_IMU_SUB = f"tcp://{host}:{port}"
 
+host = os.getenv("ZMQ_CONNECT_SUB_TRACKER_HOST", "dnn")
+port = int(os.getenv("ZMQ_CONNECT_SUB_TRACKER_PORT", "5580"))
+ZMQ_TRACKER_SUB = f"tcp://{host}:{port}"
+
 UDP_META_PORT = int(os.getenv("UDP_META_PORT", "9100"))
 UDP_IMU_PORT  = int(os.getenv("UDP_IMU_PORT",  "9101"))
 UDP_TELEM_PORT = int(os.getenv("UDP_TELEM_PORT", "9102"))
@@ -48,6 +52,10 @@ def run():
     sub_imu = ctx.socket(zmq.SUB)
     sub_imu.connect(ZMQ_IMU_SUB)
     sub_imu.setsockopt_string(zmq.SUBSCRIBE, "")
+
+    sub_tracker = ctx.socket(zmq.SUB)
+    sub_tracker.connect(ZMQ_TRACKER_SUB)
+    sub_tracker.setsockopt_string(zmq.SUBSCRIBE, "")
 
     udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_send_q: queue.Queue[tuple[bytes, tuple[str, int]]] = queue.Queue(maxsize=10000)
@@ -196,12 +204,20 @@ def run():
             for (ip, port) in targets:
                 udp_send_q.put((payload, (ip, port)))
 
+    def tracker_status_loop():
+        while True:
+            msg = sub_tracker.recv_json()
+            payload = json.dumps(msg).encode("utf-8")
+            for (ip, port) in list(telem_dests):
+                udp_send_q.put((payload, (ip, port)))
+
 
     threading.Thread(target =   udp_sender_loop, daemon=True).start()
     threading.Thread(target =     internal_loop, daemon=True).start()
     threading.Thread(target =    rtp_usage_loop, daemon=True).start()
     threading.Thread(target = usage_report_loop, daemon=True).start()
     threading.Thread(target =         imu_loop, daemon=True).start()
+    threading.Thread(target=tracker_status_loop, daemon=True).start()
 
     log.info("UDP meta TX online (internal thread started)")
 
