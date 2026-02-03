@@ -1,5 +1,6 @@
 import cv2
 from .camera_base import Camera
+import time
 class USB_Camera(Camera):
     def __init__(self, width=1280, height=720, fps=120, dev_video="/dev/video0"):
         super().__init__()
@@ -35,10 +36,11 @@ class USB_Camera(Camera):
     def capture_frame(self):
         """Capture a frame from the USB camera."""
         ok, image_bgr = self.cap.read()
+        TOV = time.time_ns()
         if not ok or image_bgr is None:
             return False, None
         h, w, c = image_bgr.shape
-        metadata = {'h': h, 'w': w, 'c': c}
+        metadata = {'h': h, 'w': w, 'c': c, 'tov_ns': TOV}
         frame = {'image': image_bgr, 'metadata': metadata}
         return True, frame
     

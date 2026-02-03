@@ -44,6 +44,7 @@ class AravisCamera(BaseCamera):
             return False, None
         if frame is None:
             return False, None
+        tov_ns = time.time_ns()
         try:
             image = frame_to_bgr(self.cam, frame)
         finally:
@@ -61,10 +62,13 @@ class AravisCamera(BaseCamera):
             chunk = self._extract_chunk_data(frame)
             if chunk:
                 metadata.update(chunk)
+                if "timestamp" in chunk:
+                    tov_ns = chunk["timestamp"]
                 now = time.time()
                 if now - self._chunk_last_log_t >= self._chunk_info_period:
                     logging.info("Chunk data: %s", chunk)
                     self._chunk_last_log_t = now
+        metadata["tov_ns"] = tov_ns
         return True, {'image': image, 'metadata': metadata}
 
     def _extract_chunk_data(self, frame):
