@@ -93,6 +93,7 @@ class imu(IMUInterface):
             "topic": "gaa",
             "payload": {
                 "timestamp": timestamp,
+                "t_host_hw_ns": time.time_ns(),
                 "gyro": gyro,
                 "accel": accel,
                 "counter": self.count,

@@ -68,7 +68,7 @@ class AravisCamera(BaseCamera):
                 if now - self._chunk_last_log_t >= self._chunk_info_period:
                     logging.info("Chunk data: %s", chunk)
                     self._chunk_last_log_t = now
-        metadata["tov_ns"] = tov_ns
+        metadata["t_cam_hw_ns"] = tov_ns
         return True, {'image': image, 'metadata': metadata}
 
     def _extract_chunk_data(self, frame):

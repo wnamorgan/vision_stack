@@ -40,7 +40,7 @@ class USB_Camera(Camera):
         if not ok or image_bgr is None:
             return False, None
         h, w, c = image_bgr.shape
-        metadata = {'h': h, 'w': w, 'c': c, 'tov_ns': TOV}
+        metadata = {'h': h, 'w': w, 'c': c, 't_cam_hw_ns': TOV}
         frame = {'image': image_bgr, 'metadata': metadata}
         return True, frame
     

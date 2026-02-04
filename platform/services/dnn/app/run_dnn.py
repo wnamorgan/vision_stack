@@ -9,6 +9,7 @@ sys.path.insert(0, str(SERVICE_ROOT))
 
 from code.dnn_worker import run as dnn_run
 from code.tracker_sm import run as tracker_sm_run
+from code.ego import run as ego_run
 
 if __name__ == "__main__":
     mp.set_start_method("spawn")
@@ -16,6 +17,7 @@ if __name__ == "__main__":
     procs = [
         mp.Process(target=dnn_run, name="dnn_worker"),
         mp.Process(target=tracker_sm_run, name="tracker_sm"),
+        mp.Process(target=ego_run, name="ego"),
     ]
 
     for p in procs:

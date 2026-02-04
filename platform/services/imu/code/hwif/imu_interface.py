@@ -105,6 +105,7 @@ class IMUInterface(SerialDevice):
 
             sample = {
                 "timestamp": float(timestamp - self.t0),
+                "t_host_hw_ns": time.time_ns(),
                 "gyro": gyro,          # list[float]
                 "accel": accel,        # list[float]
                 "counter": counter,    # int

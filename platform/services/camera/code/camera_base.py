@@ -119,6 +119,7 @@ class Camera:
             image = frame['image']
             metadata = frame['metadata']
             metadata['frame_id'] = self.frame_id
+            metadata['t_host_hw_ns'] = time.time_ns()
             self.frame_id += 1
             now = time.time()
             if now - last_log_t >= info_period:

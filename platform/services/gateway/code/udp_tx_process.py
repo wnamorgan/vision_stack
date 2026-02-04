@@ -19,9 +19,9 @@ host = os.getenv("ZMQ_CONNECT_SUB_IMU_HOST", "imu")
 port = int(os.getenv("ZMQ_CONNECT_SUB_IMU_PORT", "5530"))
 ZMQ_IMU_SUB = f"tcp://{host}:{port}"
 
-host = os.getenv("ZMQ_CONNECT_SUB_TRACKER_HOST", "dnn")
-port = int(os.getenv("ZMQ_CONNECT_SUB_TRACKER_PORT", "5580"))
-ZMQ_TRACKER_SUB = f"tcp://{host}:{port}"
+host = os.getenv("ZMQ_CONNECT_SUB_SM_HOST", "dnn")
+port = int(os.getenv("ZMQ_CONNECT_SUB_SM_PORT", "5580"))
+ZMQ_SM_SUB = f"tcp://{host}:{port}"
 
 UDP_META_PORT = int(os.getenv("UDP_META_PORT", "9100"))
 UDP_IMU_PORT  = int(os.getenv("UDP_IMU_PORT",  "9101"))
@@ -54,7 +54,7 @@ def run():
     sub_imu.setsockopt_string(zmq.SUBSCRIBE, "")
 
     sub_tracker = ctx.socket(zmq.SUB)
-    sub_tracker.connect(ZMQ_TRACKER_SUB)
+    sub_tracker.connect(ZMQ_SM_SUB)
     sub_tracker.setsockopt_string(zmq.SUBSCRIBE, "")
 
     udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
