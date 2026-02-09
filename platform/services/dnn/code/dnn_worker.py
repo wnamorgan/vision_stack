@@ -236,6 +236,8 @@ class DnnWorker:
             out = {
                 "type": "detections",
                 "frame_id": frame_id,
+                "t_cam_hw_ns": (msg.get("metadata") or {}).get("t_cam_hw_ns"),
+                "t_cam_sw_ns": (msg.get("metadata") or {}).get("t_cam_sw_ns"),
                 "dets": dets,
             }
             try:

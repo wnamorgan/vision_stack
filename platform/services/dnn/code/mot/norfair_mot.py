@@ -1,7 +1,7 @@
 """Minimal MOT wrapper for ego compensation experiments.
 
 Usage:
-    tracker = EgoCompTracker(distance_threshold=40, meas_prop="norfair")
+    tracker = NorfairEgoTracker(distance_threshold=40, meas_prop="norfair")
     tracks, H_ref_from_cur = tracker.update(detections, H_cur_from_prev, H_ref_from_cur)
 
 Inputs:
@@ -47,7 +47,7 @@ def apply_h(pt, H):
     return (v[0] / v[2], v[1] / v[2])
 
 
-class EgoCompTracker:
+class NorfairEgoTracker:
     def __init__(
         self,
         distance_threshold: float,
@@ -55,14 +55,19 @@ class EgoCompTracker:
         meas_prop: str = "external",  # {none, norfair, external}
         hit_counter_max: int = 15,
     ):
-        # Single tracker; behavior depends on meas_prop.
+        self._distance_threshold = distance_threshold
+        self._initialization_delay = initialization_delay
+        self._hit_counter_max = hit_counter_max
+        self.init_tracker()
+        self.meas_prop = meas_prop
+
+    def init_tracker(self):
         self.tracker = Tracker(
             distance_function="euclidean",
-            distance_threshold=distance_threshold,
-            initialization_delay=initialization_delay,
-            hit_counter_max=hit_counter_max,
+            distance_threshold=self._distance_threshold,
+            initialization_delay=self._initialization_delay,
+            hit_counter_max=self._hit_counter_max,
         )
-        self.meas_prop = meas_prop
 
     def update(self, detections, H_cur_from_prev, H_ref_from_cur):
         # H_cur_from_prev maps last-frame pixels -> current-frame pixels.

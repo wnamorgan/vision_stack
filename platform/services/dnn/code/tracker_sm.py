@@ -33,9 +33,11 @@ class IntentType(str, Enum):
 class TrackerStateMachine:
     def __init__(self, pub):
         self.state = TrackerState.IDLE
-        self.acq_enabled = False
         self._lock = threading.Lock()
         self._pub = pub
+        self.acq_enabled      = False
+        self._reset_requested = False
+        self._ref_locked      = False
 
     def publish_state(self):
         log.info("state=%s", self.state.value)
@@ -49,11 +51,10 @@ class TrackerStateMachine:
         self.publish_state()
 
     def reset(self):
-        self.update_state(TrackerState.INIT)
-
-    def set_acq_enable(self, enabled: bool = True):
         with self._lock:
-            self.acq_enabled = bool(enabled)
+            self.acq_enabled      = False
+            self._reset_requested = False
+            self._ref_locked      = False
 
     def snapshot(self) -> dict:
         with self._lock:
@@ -63,41 +64,61 @@ class TrackerStateMachine:
                 "ts": time.time(),
             }
 
-
-def run():
-    ctx = zmq.Context()
-
-    sub = ctx.socket(zmq.SUB)
-    sub.connect(ZMQ_INTENT_SUB)
-    sub.setsockopt_string(zmq.SUBSCRIBE, "")
-
-    pub = ctx.socket(zmq.PUB)
-    pub.bind(ZMQ_SM_PUB)
-
-    sub_ego = ctx.socket(zmq.SUB)
-    sub_ego.connect(ZMQ_EGO_SUB)
-    sub_ego.setsockopt_string(zmq.SUBSCRIBE, "")
-
-    sm = TrackerStateMachine(pub)
-
-    def intent_loop():
+    def intent_loop(self):
+        ctx = zmq.Context.instance()
+        sub = ctx.socket(zmq.SUB)
+        sub.connect(ZMQ_INTENT_SUB)
+        sub.setsockopt_string(zmq.SUBSCRIBE, "")
         while True:
             msg = sub.recv_json()
             mtype = msg.get("type")
             if mtype == IntentType.TRACKER_RESET.value:
-                sm.reset()
+                with self._lock:
+                    self._reset_requested = True                
             elif mtype == IntentType.ACQ_ENABLE.value:
-                sm.set_acq_enable(True)
-                pub.send_json({"type": "TRACKER_STATUS", "value": sm.snapshot()})
+                with self._lock:
+                    self.acq_enabled = bool(True)                
 
-    def ego_loop():
+    def ego_loop(self):
+        ctx = zmq.Context.instance()
+        sub_ego = ctx.socket(zmq.SUB)
+        sub_ego.connect(ZMQ_EGO_SUB)
+        sub_ego.setsockopt_string(zmq.SUBSCRIBE, "")
         while True:
             msg = sub_ego.recv_json()
             if msg.get("type") == "REF_LOCKED":
-                sm.update_state(TrackerState.READY)
+                with self._lock:
+                    self._ref_locked = True
 
-    threading.Thread(target=intent_loop, daemon=True).start()
-    threading.Thread(target=ego_loop, daemon=True).start()
+    def transition_loop(self):
+        period = 1.0 / 20.0  # 20 Hz
+        while True:
+            time.sleep(period)
+            with self._lock:
+                reset_req   = self._reset_requested
+                ref_locked  = self._ref_locked
+                acq_enabled = self.acq_enabled
+                cur_state   = self.state
+
+            if reset_req:
+                self.reset()
+                self.update_state(TrackerState.INIT)
+            elif cur_state == TrackerState.INIT and ref_locked:
+                self.update_state(TrackerState.READY)
+            elif cur_state == TrackerState.READY and acq_enabled:
+                self.update_state(TrackerState.ACQ)
+
+def run():
+    ctx = zmq.Context()
+
+    pub = ctx.socket(zmq.PUB)
+    pub.bind(ZMQ_SM_PUB)
+
+    sm = TrackerStateMachine(pub)
+
+    threading.Thread(target=sm.intent_loop, daemon=True).start()
+    threading.Thread(target=sm.ego_loop, daemon=True).start()
+    threading.Thread(target=sm.transition_loop, daemon=True).start()
 
     period = 1.0 / max(0.1, HEARTBEAT_HZ)
     while True:

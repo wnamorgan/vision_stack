@@ -15,7 +15,7 @@ import cv2
 
 from norfair import Detection
 
-from mot import EgoCompTracker, apply_h
+from norfair_mot import NorfairEgoTracker, apply_h
 
 
 # Simple BGR color map for readability.
@@ -154,12 +154,12 @@ def main():
     meas_prop = args.meas_prop
 
     # Two trackers run side-by-side for comparison.
-    tracker_no = EgoCompTracker(
+    tracker_no = NorfairEgoTracker(
         distance_threshold=dist_thresh,
         initialization_delay=0,
         meas_prop="none",
     )
-    tracker_ego = EgoCompTracker(
+    tracker_ego = NorfairEgoTracker(
         distance_threshold=dist_thresh,
         initialization_delay=0,
         meas_prop=meas_prop,
