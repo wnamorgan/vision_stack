@@ -90,7 +90,7 @@ def run():
             out.append((ip, port_i))
         return out
 
-    telem_dests = _parse_telem_dests(UDP_TELEM_DESTS)
+    telem_dests = set(_parse_telem_dests(UDP_TELEM_DESTS))
 
     def _udp_add_bytes(n: int):
         nonlocal udp_bytes
@@ -141,7 +141,8 @@ def run():
             }
             payload = json.dumps(out).encode("utf-8")
 
-            targets = list(telem_dests)
+            with dests_lock:
+                targets = list(telem_dests)
             for (ip, port) in targets:
                 udp_send_q.put((payload, (ip, port)))
 
@@ -157,13 +158,17 @@ def run():
             if ctype == "RTP_ADD_SINK":
                 with dests_lock:
                     dests_meta.add((ip, UDP_META_PORT))
+                    telem_dests.add((ip, UDP_TELEM_PORT))
                 log.info("Added META sink %s:%d (via RTP_ADD_SINK)", ip, UDP_META_PORT)
+                log.info("Added TELEM sink %s:%d (via RTP_ADD_SINK)", ip, UDP_TELEM_PORT)
 
             # Optional symmetry for toggles
             elif ctype == "RTP_REMOVE_SINK":
                 with dests_lock:
                     dests_meta.discard((ip, UDP_META_PORT))
+                    telem_dests.discard((ip, UDP_TELEM_PORT))
                 log.info("Removed META sink %s:%d (via RTP_REMOVE_SINK)", ip, UDP_META_PORT)
+                log.info("Removed TELEM sink %s:%d (via RTP_REMOVE_SINK)", ip, UDP_TELEM_PORT)
 
             # New: explicit IMU gating
             elif ctype == "IMU_ADD_SINK":
@@ -208,7 +213,9 @@ def run():
         while True:
             msg = sub_tracker.recv_json()
             payload = json.dumps(msg).encode("utf-8")
-            for (ip, port) in list(telem_dests):
+            with dests_lock:
+                targets = list(telem_dests)
+            for (ip, port) in targets:
                 udp_send_q.put((payload, (ip, port)))
 
 

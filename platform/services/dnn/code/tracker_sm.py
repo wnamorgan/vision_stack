@@ -21,9 +21,8 @@ ZMQ_EGO_SUB = f"tcp://{ZMQ_CONNECT_SUB_EGO_HOST}:{ZMQ_CONNECT_SUB_EGO_PORT}"
 
 HEARTBEAT_HZ = float(os.getenv("TRACKER_HEARTBEAT_HZ", "10"))
 
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger("tracker_sm")
-
+def env(name, default):
+    return os.getenv(name, default)
 
 class IntentType(str, Enum):
     TRACKER_RESET = "TRACKER_RESET"
@@ -39,8 +38,17 @@ class TrackerStateMachine:
         self._reset_requested = False
         self._ref_locked      = False
 
+        # logging
+        self._last_log        = 0.0
+        self.info_period = float(env("INFO_PERIOD", "3.0"))
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s %(levelname)s [SM] %(message)s",
+        )
+        self.log = logging.getLogger("Tracker (SM)")
+
     def publish_state(self):
-        log.info("state=%s", self.state.value)
+        self.log.info("State = %s", self.state.value)
         self._pub.send_json(
             {"type": "TRACKER_STATE", "value": {"state": self.state.value, "ts": time.time()}}
         )
@@ -107,6 +115,12 @@ class TrackerStateMachine:
                 self.update_state(TrackerState.READY)
             elif cur_state == TrackerState.READY and acq_enabled:
                 self.update_state(TrackerState.ACQ)
+
+            now = time.time()
+            dt = now - self._last_log
+            if dt >= self.info_period:
+                self.log.info("State = %s | REF Locked = %s | ACQ Enabled = %s", cur_state.value, ref_locked, acq_enabled)
+                self._last_log = now
 
 def run():
     ctx = zmq.Context()

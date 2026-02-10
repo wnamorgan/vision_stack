@@ -3,6 +3,7 @@ import os
 import pathlib
 import threading
 import time
+import logging
 
 import zmq
 import numpy as np
@@ -29,6 +30,9 @@ ZMQ_CONNECT_SUB_INTENT_HOST = os.getenv("ZMQ_CONNECT_SUB_INTENT_HOST", "gateway"
 ZMQ_CONNECT_SUB_INTENT_PORT = int(os.getenv("ZMQ_CONNECT_SUB_INTENT_PORT", "5560"))
 ZMQ_INTENT_SUB = f"tcp://{ZMQ_CONNECT_SUB_INTENT_HOST}:{ZMQ_CONNECT_SUB_INTENT_PORT}"
 
+def env(name, default):
+    return os.getenv(name, default)
+
 class EgoComp:
     def __init__(self):
         self._lock = threading.Lock()
@@ -48,12 +52,33 @@ class EgoComp:
         self.pub = ctx.socket(zmq.PUB)
         self.pub.bind(ZMQ_EGO_PUB)
 
+        # logging
+        self._last_log        = 0.0
+        self.info_period = float(env("INFO_PERIOD", "3.0"))
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s %(levelname)s [EGO] %(message)s",
+        )
+        self.log = logging.getLogger("Tracker (EGO)")
+
+    def send_ref_locked(self):
+        self.pub.send_json(
+            {
+                "type": "REF_LOCKED",
+                "value": {
+                    "t0_ego_ns": int(self.t0_ego_ns),
+                },
+            }
+        )
+
     def on_state(self, state: TrackerState):
         with self._lock:
             self._state = state
             if state == TrackerState.IDLE:
                 return
             if state == TrackerState.INIT:
+                if self._active:
+                    self.send_ref_locked()
                 return
 
     def reset(self):
@@ -64,6 +89,7 @@ class EgoComp:
             self.gyro_rad           = None
             self.t0_ego_ns          = None
             self._DCM_T_from_C = np.eye(3, dtype=np.float64)
+        self.log.info(f"Reset Complete")
 
     def _sm_loop(self):
         ctx = zmq.Context.instance()
@@ -224,14 +250,7 @@ class EgoComp:
             if state == TrackerState.INIT and not active:
                 
                 self.set_identity_on_init_frame(int(t_ego_ns))
-                self.pub.send_json(
-                    {
-                        "type": "REF_LOCKED",
-                        "value": {
-                            "t0_ego_ns": int(self.t0_ego_ns),
-                        },
-                    }
-                )
+                self.send_ref_locked()
 
             # Propagate Tracker Frame
             with self._lock:
@@ -262,6 +281,11 @@ class EgoComp:
                 self._last_norm_s = now
                 self.normalize_dcm()
 
+            dt = now - self._last_log
+            if dt >= self.info_period:
+                self.log.info(f"REF Locked = {self._active}")
+                self._last_log = now    
+    
 
 def run():
     EgoComp().run()

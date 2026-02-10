@@ -3,7 +3,7 @@ import threading
 import time
 import json
 from collections import deque
-
+import logging
 import zmq
 import numpy as np
 from norfair import Detection, Tracker
@@ -40,7 +40,8 @@ ZMQ_INTENT_SUB = f"tcp://{ZMQ_CONNECT_SUB_INTENT_HOST}:{ZMQ_CONNECT_SUB_INTENT_P
 
 EGO_CACHE_MAX = int(os.getenv("MOT_EGO_CACHE_MAX", "10"))
 
-
+def env(name, default):
+    return os.getenv(name, default)
 
 class MOT:
     def __init__(self):
@@ -64,10 +65,21 @@ class MOT:
         self._last_t_cam_hw_ns = None
         self._last_t_cam_sw_ns = None
         self._last_t_cam_sw_ns_est = None
-        self._load_calibration()
+        
         ctx = zmq.Context.instance()
         self._mot_pub = ctx.socket(zmq.PUB)
         self._mot_pub.bind(ZMQ_MOT_PUB)
+
+        # logging
+        self._last_log        = 0.0
+        self.info_period = float(env("INFO_PERIOD", "3.0"))
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s %(levelname)s [MOT] %(message)s",
+        )
+        self.log = logging.getLogger("Tracker (MOT)")
+
+        self._load_calibration()
 
     def _init_tracker(self):
         self._tracker = Tracker(
@@ -79,6 +91,7 @@ class MOT:
 
     def _load_calibration(self):
         path = os.getenv("CALIBRATION_PATH")
+        self.log.info("Loading Calibration Data: %s", path)
         if not path:
             return
         try:
@@ -87,6 +100,7 @@ class MOT:
             if K is not None:
                 self._K = np.array(K, dtype=np.float64)
                 self._Kinv = np.linalg.inv(self._K)
+                self.log.info("Loaded K: %s", self._K.tolist())
         except Exception:
             pass
 
@@ -162,14 +176,15 @@ class MOT:
                         match = ego_msg
                         break
                 if match is not None:
+                    #self.log.info("Det msg: %s", msg)
                     self._last_match = (msg, match)
                     self._last_t_cam_hw_ns = msg.get("t_cam_hw_ns")
                     self._last_t_cam_sw_ns = msg.get("t_cam_sw_ns")
                     self._last_t_cam_sw_ns_est = match.get("t_cam_sw_ns_est")
                     if self._K is not None and "DCM_T_from_C" in match:
-                        dcm_tc = np.array(match["DCM_T_from_C"], dtype=np.float64)
-                        self._last_DCM_T_from_C = dcm_tc
-                        self._last_H_ref_from_cur = self._K @ dcm_tc @ self._Kinv
+                        DCM_T_from_C = np.array(match["DCM_T_from_C"], dtype=np.float64)
+                        self._last_DCM_T_from_C = DCM_T_from_C
+                        self._last_H_ref_from_cur = self._K @ DCM_T_from_C @ self._Kinv
                         dets = msg.get("dets") or []
                         tracks = self.update(dets, self._last_H_ref_from_cur)
                         self._last_tracks = tracks
@@ -233,6 +248,12 @@ class MOT:
             "tracks": out_tracks,
         }
         self._mot_pub.send_json(out)
+
+        now = time.time()
+        dt = now - self._last_log
+        if dt >= self.info_period:
+            self.log.info("Tracks = %d", len(tracks))
+            self._last_log = now        
 
     def run(self):
         self._threads = [

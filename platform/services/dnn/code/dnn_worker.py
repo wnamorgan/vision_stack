@@ -49,7 +49,7 @@ class DnnWorker:
         # logging
         logging.basicConfig(
             level=logging.INFO,
-            format="%(asctime)s %(levelname)s [dnn] %(message)s",
+            format="%(asctime)s %(levelname)s [DNN] %(message)s",
         )
         self.log = logging.getLogger("dnn")
 
@@ -58,7 +58,7 @@ class DnnWorker:
         self._last_log = time.time()
         self._frames = 0
         self._infer_time_s = 0.0
-        self.info_period = float(env("INFO_PERIOD", "1.0"))
+        self.info_period = float(env("INFO_PERIOD", "3.0"))
 
         # model
         service_root = Path(__file__).resolve().parents[1]
@@ -223,7 +223,7 @@ class DnnWorker:
                 fps = self._frames / dt
                 avg_ms = (self._infer_time_s / max(1, self._frames)) * 1000.0
                 self.log.info(
-                    "infer fps: %.1f (avg %.1f ms, last frame_id=%s, dets=%d)",
+                    "FPS: %.1f (avg %.1f ms, last frame_id=%s, dets=%d)",
                     fps,
                     avg_ms,
                     frame_id,
