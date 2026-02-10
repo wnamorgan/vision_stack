@@ -10,7 +10,7 @@ FP16        = False
 USE_ENGINE  = True
 
 
-log = logging.getLogger("dnn")
+log = logging.getLogger("DNN")
 
 
 def create_engine(model_path, engine_path, device: int = 0, imgsz: int = 640):

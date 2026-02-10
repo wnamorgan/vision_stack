@@ -43,20 +43,20 @@ services:
     networks:
       - vision
 
-  dnn:
+  tracker:
     build:
-      context: ./services/dnn
+      context: ./services/tracker
       args:
-        BASE_IMAGE: ${DNN_BASE_IMAGE:-ultralytics/ultralytics:latest-jetson-jetpack6}
-    image: vision_stack-dnn:${DNN_TAG:-unknown}
-    env_file: ./services/dnn/.env
+        BASE_IMAGE: ${TRACKER_BASE_IMAGE:-ultralytics/ultralytics:latest-jetson-jetpack6}
+    image: vision_stack-tracker:${TRACKER_TAG:-unknown}
+    env_file: ./services/tracker/.env
     ipc: host
     gpus: all
     environment:
       ZMQ_CONNECT_SUB_CAMERA_HOST: camera
       ZMQ_CONNECT_SUB_CAMERA_PORT: 5555
     volumes:
-      - ./services/dnn:/app
+      - ./services/tracker:/app
       - ./calibration.json:/app/calibration.json:ro
     depends_on:
       - camera

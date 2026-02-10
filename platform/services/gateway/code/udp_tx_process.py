@@ -19,7 +19,7 @@ host = os.getenv("ZMQ_CONNECT_SUB_IMU_HOST", "imu")
 port = int(os.getenv("ZMQ_CONNECT_SUB_IMU_PORT", "5530"))
 ZMQ_IMU_SUB = f"tcp://{host}:{port}"
 
-host = os.getenv("ZMQ_CONNECT_SUB_SM_HOST", "dnn")
+host = os.getenv("ZMQ_CONNECT_SUB_SM_HOST", "tracker")
 port = int(os.getenv("ZMQ_CONNECT_SUB_SM_PORT", "5580"))
 ZMQ_SM_SUB = f"tcp://{host}:{port}"
 
