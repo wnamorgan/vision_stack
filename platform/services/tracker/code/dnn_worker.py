@@ -109,7 +109,9 @@ class DnnWorker:
     # ZMQ ingest + SHM
     # ----------------------------
     def enqueue_frame(self, msg: dict):
-        shm_name = msg["shm_name"]
+        shm_name = msg.get("shm_name")
+        if not shm_name:
+            return
         md = msg.get("metadata", {})
         width = int(md["w"])
         height = int(md["h"])

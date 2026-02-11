@@ -19,6 +19,8 @@ services:
   camera:
     build:
       context: ./services/camera
+    profiles:
+      - prod      
     environment:
       USE_ARAVIS: 1
     env_file: ./services/camera/.env
@@ -34,12 +36,26 @@ services:
   imu:
     build:
       context: ./services/imu
+    profiles:
+      - prod
     env_file: ./services/imu/.env
     volumes:
       - ./services/imu:/app
       - /dev:/dev
     ipc: host
     privileged: true
+    networks:
+      - vision
+
+  simulation:
+    build:
+      context: ./simulation
+    profiles:
+      - sim
+    env_file: ./simulation/.env
+    volumes:
+      - ./simulation:/app
+    ipc: host
     networks:
       - vision
 
@@ -53,13 +69,17 @@ services:
     ipc: host
     gpus: all
     environment:
-      ZMQ_CONNECT_SUB_CAMERA_HOST: camera
-      ZMQ_CONNECT_SUB_CAMERA_PORT: 5555
+      ZMQ_CONNECT_SUB_CAMERA_HOST: ${ZMQ_CONNECT_SUB_CAMERA_HOST:-camera}
+      ZMQ_CONNECT_SUB_CAMERA_PORT: ${ZMQ_CONNECT_SUB_CAMERA_PORT:-5555}
+      ZMQ_CONNECT_SUB_IMU_HOST: ${ZMQ_CONNECT_SUB_IMU_HOST:-imu}
+      ZMQ_CONNECT_SUB_IMU_PORT: 5530
+      ZMQ_CONNECT_SUB_DET_HOST: ${ZMQ_CONNECT_SUB_DET_HOST:-localhost}
+      ZMQ_CONNECT_SUB_DET_PORT: 5566
     volumes:
       - ./services/tracker:/app
       - ./calibration.json:/app/calibration.json:ro
-    depends_on:
-      - camera
+    # depends_on:
+    #   - camera
     networks:
       - vision
 
@@ -72,11 +92,11 @@ services:
     environment:
       ZMQ_CONNECT_SUB_CAMERA_HOST: camera
       ZMQ_CONNECT_SUB_CAMERA_PORT: 5555
-      ZMQ_CONNECT_SUB_IMU_HOST: imu
+      ZMQ_CONNECT_SUB_IMU_HOST: ${ZMQ_CONNECT_SUB_IMU_HOST:-imu}
       ZMQ_CONNECT_SUB_IMU_PORT: 5530
-    depends_on:
-      - camera
-      - imu
+    # depends_on:
+    #   - camera
+    #   - imu
     ipc: host
     networks:
       vision: {}
