@@ -15,12 +15,16 @@ import zmq
 SERVICE_ROOT = Path(__file__).resolve().parents[1]   # .../imu
 sys.path.insert(0, str(SERVICE_ROOT))
 sys.path.insert(0, str(SERVICE_ROOT / "code"))      # so `code/` imports work
+from util.gw_register import start_gateway_registration
 
 log = logging.getLogger("imu")
 
 ZMQ_BIND_PUB_IMU_HOST = os.getenv("ZMQ_BIND_PUB_IMU_HOST", "0.0.0.0")
 ZMQ_BIND_PUB_IMU_PORT = int(os.getenv("ZMQ_BIND_PUB_IMU_PORT", "5530"))
 ZMQ_IMU_PUB_ENDPOINT = f"tcp://{ZMQ_BIND_PUB_IMU_HOST}:{ZMQ_BIND_PUB_IMU_PORT}"
+
+GW_REGISTER_SUB_HOST = os.getenv("GW_REGISTER_SUB_HOST", "imu")
+GW_REGISTER_SUB_PORT = int(os.getenv("GW_REGISTER_SUB_PORT", str(ZMQ_BIND_PUB_IMU_PORT)))
 
 # Optional tuning
 IMU_QUEUE_MAX = int(os.getenv("IMU_QUEUE_MAX", "10000"))
@@ -62,6 +66,9 @@ def main():
     pub.setsockopt(zmq.SNDHWM, ZMQ_SNDHWM)
     pub.bind(ZMQ_IMU_PUB_ENDPOINT)
     log.info(f"IMU ZMQ PUB bound: {ZMQ_IMU_PUB_ENDPOINT}")
+    register_endpoint = f"tcp://{GW_REGISTER_SUB_HOST}:{GW_REGISTER_SUB_PORT}"
+
+    start_gateway_registration(endpoint=register_endpoint, logger=log)
 
     info_period = float(os.getenv("INFO_PERIOD", "10.0"))
     last_log_t = time.time()

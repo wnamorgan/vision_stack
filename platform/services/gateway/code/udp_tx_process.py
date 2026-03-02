@@ -15,16 +15,12 @@ host = os.getenv("ZMQ_CONNECT_SUB_RTP_USAGE_HOST", "localhost")
 port = int(os.getenv("ZMQ_CONNECT_SUB_RTP_USAGE_PORT", "5563"))
 ZMQ_RTP_USAGE_SUB = f"tcp://{host}:{port}"
 
-host = os.getenv("ZMQ_CONNECT_SUB_IMU_HOST", "imu")
-port = int(os.getenv("ZMQ_CONNECT_SUB_IMU_PORT", "5530"))
-ZMQ_IMU_SUB = f"tcp://{host}:{port}"
-
 host = os.getenv("ZMQ_CONNECT_SUB_SM_HOST", "tracker")
 port = int(os.getenv("ZMQ_CONNECT_SUB_SM_PORT", "5580"))
 ZMQ_SM_SUB = f"tcp://{host}:{port}"
 
 UDP_META_PORT = int(os.getenv("UDP_META_PORT", "9100"))
-UDP_IMU_PORT  = int(os.getenv("UDP_IMU_PORT",  "9101"))
+UDP_REG_PORT = int(os.getenv("UDP_REG_PORT", "9101"))
 UDP_TELEM_PORT = int(os.getenv("UDP_TELEM_PORT", "9102"))
 UDP_TELEM_DESTS = os.getenv("UDP_TELEM_DESTS", "")
 
@@ -49,10 +45,6 @@ def run():
     sub_rtp.connect(ZMQ_RTP_USAGE_SUB)
     sub_rtp.setsockopt_string(zmq.SUBSCRIBE, "")
 
-    sub_imu = ctx.socket(zmq.SUB)
-    sub_imu.connect(ZMQ_IMU_SUB)
-    sub_imu.setsockopt_string(zmq.SUBSCRIBE, "")
-
     sub_tracker = ctx.socket(zmq.SUB)
     sub_tracker.connect(ZMQ_SM_SUB)
     sub_tracker.setsockopt_string(zmq.SUBSCRIBE, "")
@@ -60,11 +52,13 @@ def run():
     udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_send_q: queue.Queue[tuple[bytes, tuple[str, int]]] = queue.Queue(maxsize=10000)
 
-    # Separate sink sets so enabling RTP/meta does NOT implicitly enable IMU.
-    dests_meta = set()    # {(ip, port)} for meta/link-usage/etc (UDP_META_PORT)
-    dests_imu  = set()    # {(ip, port)} for IMU (UDP_IMU_PORT)
+    # Separate sink sets so enabling RTP/meta does NOT implicitly enable registered streams.
+    dests_meta = set()   # {(ip, port)} for meta/link-usage/etc (UDP_META_PORT)
+    dests_reg = set()    # {(ip, port)} for registered ZMQ streams (UDP_REG_PORT)
 
     dests_lock = threading.Lock()
+    reg_lock = threading.Lock()
+    registered_endpoints = set()
 
 
     # accounting
@@ -151,35 +145,48 @@ def run():
             cmd = sub_int.recv_json()
             ctype = cmd.get("type")
             ip = cmd.get("ip")
-            if not ip:
-                continue
+            endpoint = cmd.get("value", {}).get("endpoint") if isinstance(cmd.get("value"), dict) else None
 
-            # Existing: RTP request enables META sink (not IMU).
+            # Existing: RTP request enables META/TELEM sinks.
             if ctype == "RTP_ADD_SINK":
+                if not ip:
+                    continue
                 with dests_lock:
                     dests_meta.add((ip, UDP_META_PORT))
                     telem_dests.add((ip, UDP_TELEM_PORT))
+                    dests_reg.add((ip, UDP_REG_PORT))
                 log.info("Added META sink %s:%d (via RTP_ADD_SINK)", ip, UDP_META_PORT)
                 log.info("Added TELEM sink %s:%d (via RTP_ADD_SINK)", ip, UDP_TELEM_PORT)
+                log.info("Added REG sink %s:%d (via RTP_ADD_SINK)", ip, UDP_REG_PORT)
 
             # Optional symmetry for toggles
             elif ctype == "RTP_REMOVE_SINK":
+                if not ip:
+                    continue
                 with dests_lock:
                     dests_meta.discard((ip, UDP_META_PORT))
                     telem_dests.discard((ip, UDP_TELEM_PORT))
+                    dests_reg.discard((ip, UDP_REG_PORT))
                 log.info("Removed META sink %s:%d (via RTP_REMOVE_SINK)", ip, UDP_META_PORT)
                 log.info("Removed TELEM sink %s:%d (via RTP_REMOVE_SINK)", ip, UDP_TELEM_PORT)
+                log.info("Removed REG sink %s:%d (via RTP_REMOVE_SINK)", ip, UDP_REG_PORT)
 
-            # New: explicit IMU gating
-            elif ctype == "IMU_ADD_SINK":
-                with dests_lock:
-                    dests_imu.add((ip, UDP_IMU_PORT))
-                log.info("Added IMU sink %s:%d (via IMU_ADD_SINK)", ip, UDP_IMU_PORT)
+            elif ctype == "GW_REGISTER_ZMQ_SUB" and endpoint:
+                _register_endpoint(endpoint)
 
-            elif ctype == "IMU_REMOVE_SINK":
+            elif isinstance(ctype, str) and ctype.endswith("_ADD_SINK"):
+                if not ip:
+                    continue
                 with dests_lock:
-                    dests_imu.discard((ip, UDP_IMU_PORT))
-                log.info("Removed IMU sink %s:%d (via IMU_REMOVE_SINK)", ip, UDP_IMU_PORT)
+                    dests_reg.add((ip, UDP_REG_PORT))
+                log.info("Added REG sink %s:%d (via %s)", ip, UDP_REG_PORT, ctype)
+
+            elif isinstance(ctype, str) and ctype.endswith("_REMOVE_SINK"):
+                if not ip:
+                    continue
+                with dests_lock:
+                    dests_reg.discard((ip, UDP_REG_PORT))
+                log.info("Removed REG sink %s:%d (via %s)", ip, UDP_REG_PORT, ctype)
  
 
     def meta_loop():
@@ -191,18 +198,34 @@ def run():
             for (ip, port) in targets:
                 udp_send_q.put((payload, (ip, port)))
 
-    def imu_loop():
+    def _register_endpoint(endpoint: str) -> None:
+        with reg_lock:
+            if endpoint in registered_endpoints:
+                return
+            registered_endpoints.add(endpoint)
+        threading.Thread(
+            target=_registered_loop,
+            args=(endpoint,),
+            daemon=True,
+        ).start()
+        log.info("Registered ZMQ SUB %s", endpoint)
+
+    def _registered_loop(endpoint: str) -> None:
         """
-        Drain IMU ZMQ stream continuously.
-        Only UDP-send when IMU sinks exist.
+        Drain a registered ZMQ stream continuously.
+        Only UDP-send when REG sinks exist.
         IMPORTANT: UDP payload must be pure JSON bytes (client udp_rx does json.loads(data)).
         """
+        zctx = zmq.Context()
+        sub = zctx.socket(zmq.SUB)
+        sub.connect(endpoint)
+        sub.setsockopt_string(zmq.SUBSCRIBE, "")
         while True:
-            parts = sub_imu.recv_multipart()
-            payload = parts[-1]  # JSON bytes from run_imu.py PUB
+            parts = sub.recv_multipart()
+            payload = parts[-1]
 
             with dests_lock:
-                targets = list(dests_imu)
+                targets = list(dests_reg)
             if not targets:
                 continue
 
@@ -223,7 +246,6 @@ def run():
     threading.Thread(target =     internal_loop, daemon=True).start()
     threading.Thread(target =    rtp_usage_loop, daemon=True).start()
     threading.Thread(target = usage_report_loop, daemon=True).start()
-    threading.Thread(target =         imu_loop, daemon=True).start()
     threading.Thread(target=tracker_status_loop, daemon=True).start()
 
     log.info("UDP meta TX online (internal thread started)")
