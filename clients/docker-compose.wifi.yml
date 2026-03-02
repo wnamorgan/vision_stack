@@ -11,6 +11,7 @@ services:
       LOCAL_IP: ${WIFI_IP}
       ZMQ_CONNECT_PUSH_INTENT_HOST: host.docker.internal
       ZMQ_CONNECT_SUB_TELEM_HOST: host.docker.internal
+      ZMQ_CONNECT_SUB_FRAME_HOST: host.docker.internal
 
   imu_dash:
     extra_hosts:
