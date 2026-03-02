@@ -5,16 +5,23 @@ their `docker compose` wiring.
 
 ## Quick start
 
-From this directory:
+Default (same-host or wired LAN):
 
 ```bash
-docker compose up --build
+./compose.sh up --build
+```
+
+Wi-Fi mode:
+
+```bash
+./compose.sh --wifi up --build
 ```
 
 Stop:
 
 ```bash
-docker compose down --remove-orphans
+./compose.sh down --remove-orphans
+./compose.sh --wifi down --remove-orphans
 ```
 
 ## Canonical port / endpoint map (clients)

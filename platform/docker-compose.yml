@@ -6,14 +6,9 @@ networks:
         - subnet: 172.30.10.0/24
           gateway: 172.30.10.1
 
-  macvlan:
-    driver: macvlan
-    driver_opts:
-      parent: ${MACVLAN_PARENT}
-    ipam:
-      config:
-        - subnet: 192.168.1.0/24
-          gateway: 192.168.1.1
+  lan:
+    external: true
+    name: lan
 
 services:
   camera:
@@ -100,7 +95,7 @@ services:
     ipc: host
     networks:
       vision: {}
-      macvlan:
+      lan:
         ipv4_address: 192.168.1.50
     ports:
       # keep only if you need gateway's web UI from the host

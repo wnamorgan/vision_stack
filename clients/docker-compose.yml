@@ -1,4 +1,15 @@
 
+networks:
+  client_internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.20.0/24
+          gateway: 172.31.20.1
+  lan:
+    external: true
+    name: lan
+
 services:
   gateway:
     build: ./services/gateway
@@ -6,7 +17,7 @@ services:
     ipc: host
     env_file: ./services/gateway/.env
     environment:
-      LOCAL_IP: ${LOCAL_IP}
+      LOCAL_IP: ${LOCAL_IP:-192.168.1.60}
     ports:
       - "5004:5004/udp"
       - "9100:9100/udp"
@@ -15,6 +26,10 @@ services:
     volumes:
       - ./services/gateway:/app
     command: ["python","app/run_gateway.py"]
+    networks:
+      client_internal: {}
+      lan:
+        ipv4_address: 192.168.1.60
 
   gcs:
     build: ./services/gcs
@@ -22,10 +37,12 @@ services:
     ipc: host
     env_file: ./services/gcs/.env      
     environment:
-      LOCAL_IP: ${LOCAL_IP}
+      LOCAL_IP: ${LOCAL_IP:-192.168.1.60}
       HTTP_PUBLIC_HOST: 127.0.0.1
       HTTP_PUBLIC_VIDEO_PORT: 8000
       HTTP_PUBLIC_CONTROL_PORT: 8100
+      ZMQ_CONNECT_PUSH_INTENT_HOST: gateway
+      ZMQ_CONNECT_SUB_TELEM_HOST: gateway
     ports:
       - "8000:8000"
       - "8100:8100"
@@ -35,6 +52,8 @@ services:
       - ./services/gcs/code:/app/code
       - ./services/gcs/static:/app/static
     command: ["python","run_gcs.py"]
+    networks:
+      - client_internal
 
   imu_dash:
     build: ./services/imu_dash
@@ -42,7 +61,9 @@ services:
     ipc: host
     env_file: ./services/imu_dash/.env
     environment:
-      LOCAL_IP: ${LOCAL_IP}
+      LOCAL_IP: ${LOCAL_IP:-192.168.1.60}
+      ZMQ_CONNECT_PUSH_INTENT_HOST: gateway
+      ZMQ_CONNECT_SUB_TELEM_HOST: gateway
     ports:
       - "8200:8200"
       - "8201:8201"
@@ -50,3 +71,5 @@ services:
       - ./services/imu_dash/app:/app
       - ./services/imu_dash/code:/app/code
     command: ["python","run_imu_dash.py"]
+    networks:
+      - client_internal

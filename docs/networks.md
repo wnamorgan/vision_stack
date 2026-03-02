@@ -10,6 +10,22 @@ The goal is to make future troubleshooting **mechanical** (commands + expected i
 
 ---
 
+## Deployment modes (gimbal-style)
+
+- **Default (same-host or wired remote):**
+  - Platform gateway on external `lan` macvlan (e.g., `192.168.1.50`)
+  - Client gateway on external `lan` macvlan (e.g., `192.168.1.60`)
+  - Non-gateway services stay on internal bridges
+
+- **Wi‑Fi remote mode:**
+  - Client gateway uses `network_mode: host`
+  - UI containers connect to host gateway via `host.docker.internal`
+  - `LOCAL_IP` set to `${WIFI_IP}` for sink registration
+
+Use `clients/compose.sh --wifi` to enable Wi‑Fi mode.
+
+---
+
 ## 1) Networks in this project
 
 ### 1.1 `vision` (user-defined Docker bridge)

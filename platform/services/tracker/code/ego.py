@@ -237,7 +237,7 @@ class EgoComp:
                 gyro_vec = np.array(gyro, dtype=np.float64)
             except Exception:
                 continue
-            if True: # Use System Clock as Time Base for Ego
+            if False: # Use System Clock as Time Base for Ego
                 t_ego_ns = time.time_ns()
             else: # Use IMU SW Time Base for Ego
                 t_ego_ns = int(t_imu_sw_ns)
