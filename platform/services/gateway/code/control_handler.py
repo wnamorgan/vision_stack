@@ -84,7 +84,7 @@ def run():
                 frame_endpoint["value"] = endpoint
                 pub.send_json({"type": "RTP_SET_FRAME_SOURCE", "value": {"endpoint": endpoint}})
             pub.send_json(intent)
-        elif str(intent.get("type", "")).endswith(("_ADD_SINK", "_REMOVE_SINK")):
+        elif intent.get("type") in ("ADD_SINK", "REMOVE_SINK"):
             # pass through generic sink control intents to internal bus
             pub.send_json(intent)
         elif intent.get("type") == "RTP_SET_PARAMS":

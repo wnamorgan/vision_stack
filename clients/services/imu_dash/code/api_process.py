@@ -108,13 +108,13 @@ def run() -> None:
     @app.post("/imu/start")
     def imu_start():
         ip = get_local_ip()
-        push.send_json({"type": "IMU_ADD_SINK", "ip": ip})
+        push.send_json({"type": "ADD_SINK", "ip": ip, "value": {"stream": "imu"}})
         return {"ok": True, "ip": ip}
 
     @app.post("/imu/stop")
     def imu_stop():
         ip = get_local_ip()
-        push.send_json({"type": "IMU_REMOVE_SINK", "ip": ip})
+        push.send_json({"type": "REMOVE_SINK", "ip": ip, "value": {"stream": "imu"}})
         return {"ok": True, "ip": ip}
 
     uvicorn.run(app, host=HTTP_BIND_IMU_API_HOST, port=HTTP_BIND_IMU_API_PORT, log_level="info",access_log=False)

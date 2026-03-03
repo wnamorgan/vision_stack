@@ -1,66 +1,98 @@
-# Gateway Service — local testing
+# Gateway Service
 
-This service runs `HostRTP`, which subscribes to the camera’s shared-memory metadata (`ZMQ_CONNECT_SUB_CAMERA_HOST/PORT`) and streams it out via RTP.
+The gateway is the single boundary between platform services and clients. It owns all
+external UDP/RTP egress and stays component-agnostic by using dynamic registration and
+stream-based sink routing.
 
-## Building
+## Core responsibilities
 
-```bash
-./services/gateway/build.sh
+- Ingest internal ZMQ streams from platform services (via registration).
+- Produce RTP (HostRTP) and forward frame metadata.
+- Forward registered JSON telemetry over UDP.
+- Track link usage and publish it to clients.
+
+## Control and data paths
+
+### 1) Registration (platform services -> gateway)
+
+Platform services publish ZMQ and send a UDP registration intent to the gateway:
+
+```
+{
+  "type": "GW_REGISTER_ZMQ_SUB",
+  "value": {
+    "endpoint": "tcp://service:port",
+    "stream":   "stream_id"
+  }
+}
 ```
 
-## Running
+Gateway behavior:
+- Stores the endpoint.
+- Spawns a blocking ZMQ SUB listener thread for that endpoint.
+- Associates the endpoint with a per-stream destination list.
 
-The gateway runs headless and simply publishes RTP frames to `RTP_TX_DST_IP:RTP_TX_DST_PORT`. Use your preferred RTP viewer or `clients/video_viewer/cv_viewer_RTP.py` to verify the stream.
+Notes:
+- The `endpoint` is treated as opaque.
+- `stream` is used only for routing sinks (not for component identity).
+- Gateway starts with zero endpoints; all ingest is registration-driven.
 
-### Running with Docker (`run.sh`)
+### 2) Sink requests (clients -> gateway)
 
-`run.sh` uses the same image but overrides `ZMQ_CONNECT_SUB_CAMERA_HOST/PORT` to `localhost` (set `FORCE_LOCAL=1` if you need that explicitly) while keeping the Compose `.env` values untouched. It shares IPC/network so the gateway can open the camera’s shared memory when you run the camera service locally. Run the script and then attach to the camera stream (e.g., via the GStreamer viewer) to confirm the pipeline:
+Clients request UDP delivery for a stream using control intents:
 
-```bash
-./services/gateway/run.sh
+```
+{ "type": "ADD_SINK",    "ip": "CLIENT_IP", "value": { "stream": "stream_id" } }
+{ "type": "REMOVE_SINK", "ip": "CLIENT_IP", "value": { "stream": "stream_id" } }
 ```
 
-### Running with Docker Compose
+Gateway behavior:
+- Adds/removes `CLIENT_IP` from the destination set for the given stream.
+- Does not embed any component-specific knowledge.
 
-When Compose owns the topology, use service hostnames instead of `localhost` so the gateway connects to the camera on the shared network. Drop the `--network=host` flags (compose handles networking) and place these values in the Compose-provided `.env` (or override per profile):
+### 3) UDP forwarding (platform gateway -> client gateway)
 
-```bash
-ZMQ_CONNECT_SUB_CAMERA_HOST=camera
-ZMQ_CONNECT_SUB_CAMERA_PORT=5555
-RTP_TX_DST_PORT=5004
-RTP_TX_DST_IP=127.0.0.1
-```
+The platform gateway forwards JSON payloads to clients:
 
-Bring up the stack with:
+- `UDP_META_PORT` (default 9100): frame meta and side-channel data
+- `UDP_TELEM_PORT` (default 9102): link usage and tracker status
+- `UDP_STREAM_PORT` (default 9101): registered streams (requires `stream`)
 
-```bash
-docker compose up --build
-```
+The gateway keeps unique destination IPs per stream; each registered stream is
+forwarded only to its stream’s sink list.
 
-Compose already shares IPC via `ipc: host`, which lets the gateway access the camera’s shared memory segment, and the gateway service overrides `ZMQ_CONNECT_SUB_CAMERA_HOST/PORT` so it always connects to `camera:5555`.
+### 4) Client gateway fanout (UDP -> ZMQ)
 
-## Tests
+The client gateway binds UDP ports defined by `UDP_RX_BINDINGS` and republishes all
+received JSON on a single ZMQ PUB bus (`ZMQ_BIND_PUB_TELEM_PORT`, default 5570).
 
-Run the existing `test_RTP.py` from `services/gateway/test` to exercise the same `HostRTP` + `USB_Camera` loop the gateway uses.
+This means multiple UDP ports fan into one ZMQ bus, with messages tagged by `_udp_src`
+and `_udp_port`.
 
-### Running the gateway test manually
+## RTP path (platform gateway)
 
-```bash
-cd services/gateway/test
-python test_RTP.py
-```
+Camera frames are published over ZMQ and registered as a `frame` stream. The gateway:
 
-Because the script already spawns its own `USB_Camera` publisher and `HostRTP` consumer, you can run it entirely inside the gateway container. Ensure the camera `.env` or Compose service is providing shared memory/ZMQ metadata before launching the test.
+1. Subscribes to the frame ZMQ endpoint (HostRTP only).
+2. Reads shared memory and produces RTP.
+3. Publishes `FRAME_META` on its internal ZMQ bus.
+4. `udp_tx_process` forwards that meta over `UDP_META_PORT` to clients.
 
-## Viewing the RTP Stream
+RTP sinks are managed by `RTP_SUBSCRIBE`/`RTP_UNSUBSCRIBE` and are independent from
+registered stream sinks.
 
-Point your local RTP viewer at the gateway output (port `5004` by default). This command uses GStreamer to receive and display the JPEG stream:
+## Key guarantees
 
-```bash
-gst-launch-1.0 -v \
-  udpsrc port=5004 do-timestamp=true \
-  caps="application/x-rtp,media=video,encoding-name=JPEG,payload=26,clock-rate=90000" ! \
-  rtpjpegdepay ! jpegdec ! autovideosink sync=false
-```
+- No component-specific wiring in the gateway.
+- All ingest is registration-based.
+- Sink routing requires a `stream` identifier; requests without one are ignored.
+- Client fanout remains simple: UDP -> single ZMQ bus.
 
-Leave it running to see the same frames the gateway is publishing; close the window or hit `Ctrl+C` when you’re done.
+## Environment overview (gateway)
+
+- `UDP_META_PORT` (default 9100)
+- `UDP_STREAM_PORT`  (default 9101)
+- `UDP_TELEM_PORT` (default 9102)
+- `ZMQ_CONNECT_SUB_CMD_HOST/PORT` (internal control bus)
+- `ZMQ_CONNECT_SUB_FRAME_META_HOST/PORT` (frame meta bus)
+- `ZMQ_CONNECT_SUB_RTP_USAGE_HOST/PORT` (RTP usage bus)
