@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any
 import zmq
 from fastapi import FastAPI
 import uvicorn
+from code.util.gw_register import start_client_gw_udp_registration
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("imu_api")
@@ -65,6 +66,8 @@ def run() -> None:
     push = ctx.socket(zmq.PUSH)
     push.connect(ZMQ_PUSH_ENDPOINT)
     log.info("[IMU_API] ZMQ PUSH connected to %s", ZMQ_PUSH_ENDPOINT)
+
+    start_client_gw_udp_registration(name="imu", port=9101, logger=log)
 
     app = FastAPI()
 

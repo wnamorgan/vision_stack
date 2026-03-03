@@ -88,8 +88,6 @@ def run():
     pub_q: queue.Queue[dict] = queue.Queue(maxsize=10000)
 
     log.info("UDP RX online -> ZMQ PUB %s", zmq_pub)
-    for b in bindings:
-        log.info("  binding: name=%s udp=%s:%d filter_type=%s", b.name, bind_host, b.port, b.filter_type)
 
     def rx_loop(b: Binding):
         udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -130,10 +128,40 @@ def run():
                 # Drop if congested; this is a live stream adapter
                 pass
 
+    ZMQ_CONNECT_SUB_CLIENT_GW_CMD_HOST = os.getenv("ZMQ_CONNECT_SUB_CLIENT_GW_CMD_HOST", "localhost")
+    ZMQ_CONNECT_SUB_CLIENT_GW_CMD_PORT = int(os.getenv("ZMQ_CONNECT_SUB_CLIENT_GW_CMD_PORT", "5575"))
+    cmd_sub = ctx.socket(zmq.SUB)
+    cmd_sub.connect(f"tcp://{ZMQ_CONNECT_SUB_CLIENT_GW_CMD_HOST}:{ZMQ_CONNECT_SUB_CLIENT_GW_CMD_PORT}")
+    cmd_sub.setsockopt_string(zmq.SUBSCRIBE, "")
+
+    active_ports = set()
+
+    def _start_binding(b: Binding) -> None:
+        if b.port in active_ports:
+            return
+        active_ports.add(b.port)
+        log.info("  binding: name=%s udp=%s:%d filter_type=%s", b.name, bind_host, b.port, b.filter_type)
+        threading.Thread(target=rx_loop, args=(b,), daemon=True).start()
+
+    def _cmd_loop():
+        while True:
+            msg = cmd_sub.recv_json()
+            if msg.get("type") != "GW_REGISTER_UDP_BIND":
+                continue
+            val = msg.get("value") or {}
+            name = val.get("name")
+            port = val.get("port")
+            if not name or not isinstance(port, int):
+                continue
+            b = Binding(name=name, port=port, filter_type=None)
+            log.info("Registering UDP binding name=%s port=%d", name, port)
+            _start_binding(b)
+
     # One thread per port (simple + explicit)
     for b in bindings:
-        threading.Thread(target=rx_loop, args=(b,), daemon=True).start()
+        _start_binding(b)
     threading.Thread(target=pub_loop, daemon=True).start()
+    threading.Thread(target=_cmd_loop, daemon=True).start()
 
     # Keep process alive
     while True:
