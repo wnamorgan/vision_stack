@@ -54,11 +54,12 @@ def run():
 
     # Separate sink sets so enabling RTP/meta does NOT implicitly enable registered streams.
     dests_meta = set()   # {(ip, port)} for meta/link-usage/etc (UDP_META_PORT)
-    dests_reg = set()    # {(ip, port)} for registered ZMQ streams (UDP_REG_PORT)
+    dests_reg = set()    # {(ip, port)} for generic registered ZMQ streams (UDP_REG_PORT)
+    dests_imu = set()    # {(ip, port)} for IMU-only registered streams (UDP_REG_PORT)
 
     dests_lock = threading.Lock()
     reg_lock = threading.Lock()
-    registered_endpoints = set()
+    registered_endpoints = {}
 
 
     # accounting
@@ -145,7 +146,9 @@ def run():
             cmd = sub_int.recv_json()
             ctype = cmd.get("type")
             ip = cmd.get("ip")
-            endpoint = cmd.get("value", {}).get("endpoint") if isinstance(cmd.get("value"), dict) else None
+            value = cmd.get("value") if isinstance(cmd.get("value"), dict) else {}
+            endpoint = value.get("endpoint")
+            stream = value.get("stream")
 
             # Existing: RTP request enables META/TELEM sinks.
             if ctype == "RTP_ADD_SINK":
@@ -172,7 +175,24 @@ def run():
                 log.info("Removed REG sink %s:%d (via RTP_REMOVE_SINK)", ip, UDP_REG_PORT)
 
             elif ctype == "GW_REGISTER_ZMQ_SUB" and endpoint:
-                _register_endpoint(endpoint)
+                if stream == "imu":
+                    _register_endpoint(endpoint, dests_imu, stream)
+                else:
+                    _register_endpoint(endpoint, dests_reg, stream)
+
+            elif ctype == "IMU_ADD_SINK":
+                if not ip:
+                    continue
+                with dests_lock:
+                    dests_imu.add((ip, UDP_REG_PORT))
+                log.info("Added IMU sink %s:%d (via %s)", ip, UDP_REG_PORT, ctype)
+
+            elif ctype == "IMU_REMOVE_SINK":
+                if not ip:
+                    continue
+                with dests_lock:
+                    dests_imu.discard((ip, UDP_REG_PORT))
+                log.info("Removed IMU sink %s:%d (via %s)", ip, UDP_REG_PORT, ctype)
 
             elif isinstance(ctype, str) and ctype.endswith("_ADD_SINK"):
                 if not ip:
@@ -198,22 +218,25 @@ def run():
             for (ip, port) in targets:
                 udp_send_q.put((payload, (ip, port)))
 
-    def _register_endpoint(endpoint: str) -> None:
+    def _register_endpoint(endpoint: str, dests: set, stream=None) -> None:
         with reg_lock:
             if endpoint in registered_endpoints:
                 return
-            registered_endpoints.add(endpoint)
+            registered_endpoints[endpoint] = dests
         threading.Thread(
             target=_registered_loop,
-            args=(endpoint,),
+            args=(endpoint, dests),
             daemon=True,
         ).start()
-        log.info("Registered ZMQ SUB %s", endpoint)
+        if stream:
+            log.info("Registered ZMQ SUB %s (stream=%s)", endpoint, stream)
+        else:
+            log.info("Registered ZMQ SUB %s", endpoint)
 
-    def _registered_loop(endpoint: str) -> None:
+    def _registered_loop(endpoint: str, dests: set) -> None:
         """
         Drain a registered ZMQ stream continuously.
-        Only UDP-send when REG sinks exist.
+        Only UDP-send when sinks exist for this stream.
         IMPORTANT: UDP payload must be pure JSON bytes (client udp_rx does json.loads(data)).
         """
         zctx = zmq.Context()
@@ -225,7 +248,7 @@ def run():
             payload = parts[-1]
 
             with dests_lock:
-                targets = list(dests_reg)
+                targets = list(dests)
             if not targets:
                 continue
 

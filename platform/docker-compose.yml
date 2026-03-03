@@ -84,9 +84,6 @@ services:
     env_file: ./services/gateway/.env
     volumes:
       - ./services/gateway:/app
-    environment:
-      ZMQ_CONNECT_SUB_CAMERA_HOST: camera
-      ZMQ_CONNECT_SUB_CAMERA_PORT: 5555
     # depends_on:
     #   - camera
     #   - imu

@@ -5,6 +5,7 @@ import time
 from multiprocessing import shared_memory
 import numpy as np
 import logging
+from code.util.gw_register import start_gateway_registration
 class Camera:
     frame_id_counter=0
     def __init__(self):
@@ -19,11 +20,17 @@ class Camera:
         pub_endpoint = f"tcp://{host}:{port}"
         self.socket.bind(pub_endpoint)  # ZeroMQ PUB socket
 
+        self.log = logging.getLogger("camera")
+        logging.basicConfig(level=logging.INFO)
+
+        register_host = os.getenv("GW_REGISTER_SUB_HOST", "camera")
+        register_port = int(os.getenv("GW_REGISTER_SUB_PORT", str(port)))
+        register_endpoint = f"tcp://{register_host}:{register_port}"
+        start_gateway_registration(endpoint=register_endpoint, logger=self.log)
+
         self.exit_flag = threading.Event()  # For signaling thread to stop
         self.failed_event = threading.Event()  # Set when capture loop fails
         self.capture_thread = threading.Thread(target=self.capture_frames)  # Create the capture thread
-        self.log = logging.getLogger("camera")
-        logging.basicConfig(level=logging.INFO)
         self.frame_id = 0
         
     def setup_shm(self):

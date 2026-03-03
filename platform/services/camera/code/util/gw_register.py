@@ -11,7 +11,6 @@ def start_gateway_registration(*, endpoint: str, logger) -> None:
     Start a heartbeat listener and (re)register endpoint with the gateway.
     """
     intent_type = os.getenv("GW_REGISTER_INTENT_TYPE", "GW_REGISTER_ZMQ_SUB")
-    stream = os.getenv("GW_REGISTER_STREAM", "").strip()
     gw_ip = os.getenv("GW_INTENT_DST_IP", "gateway")
     gw_port = int(os.getenv("GW_INTENT_DST_PORT", "9000"))
     cmd_host = os.getenv("ZMQ_CONNECT_SUB_CMD_HOST", "gateway")
@@ -19,8 +18,6 @@ def start_gateway_registration(*, endpoint: str, logger) -> None:
 
     def _send_register():
         msg = {"type": intent_type, "value": {"endpoint": endpoint}}
-        if stream:
-            msg["value"]["stream"] = stream
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.sendto(json.dumps(msg).encode("utf-8"), (gw_ip, gw_port))

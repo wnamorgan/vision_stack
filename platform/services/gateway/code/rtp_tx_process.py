@@ -25,6 +25,8 @@ def rtp_tx_process():
                 host._remove_rtp_sink(msg["ip"], msg["port"])
             elif msg.get("type") == "RTP_SET_PARAMS":
                 host.apply_rtp_params(msg.get("value", {}))
+            elif msg.get("type") == "RTP_SET_FRAME_SOURCE":
+                host.set_frame_endpoint(msg.get("value", {}).get("endpoint"))
     threading.Thread(target=control_loop, daemon=True).start()
 
 

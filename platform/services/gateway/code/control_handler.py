@@ -28,6 +28,7 @@ def run():
     pub = ctx.socket(zmq.PUB)
     pub.bind(ZMQ_INTERNAL_PUB)
 
+    frame_endpoint = {"value": None}
     log.info("Control handler online")
 
     reg_lock = threading.Lock()
@@ -72,6 +73,16 @@ def run():
             if endpoint:
                 with reg_lock:
                     registered_endpoints.add(endpoint)
+            pub.send_json(intent)
+        elif intent.get("type") == "GW_REGISTER_FRAME_ZMQ_SUB":
+            endpoint = None
+            if isinstance(intent.get("value"), dict):
+                endpoint = intent["value"].get("endpoint")
+            if endpoint:
+                with reg_lock:
+                    registered_endpoints.add(endpoint)
+                frame_endpoint["value"] = endpoint
+                pub.send_json({"type": "RTP_SET_FRAME_SOURCE", "value": {"endpoint": endpoint}})
             pub.send_json(intent)
         elif str(intent.get("type", "")).endswith(("_ADD_SINK", "_REMOVE_SINK")):
             # pass through generic sink control intents to internal bus

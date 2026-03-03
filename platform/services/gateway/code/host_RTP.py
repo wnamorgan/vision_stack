@@ -27,9 +27,9 @@ host = os.getenv("ZMQ_BIND_PUB_RTP_USAGE_HOST", "0.0.0.0")
 port = int(os.getenv("ZMQ_BIND_PUB_RTP_USAGE_PORT", "5563"))
 ZMQ_RTP_USAGE_PUB  = f"tcp://{host}:{port}"
 
-host = os.getenv("ZMQ_CONNECT_SUB_CAMERA_HOST", "localhost")
-port = int(os.getenv("ZMQ_CONNECT_SUB_CAMERA_PORT", "5555"))
-ZMQ_SUB_ENDPOINT = f"tcp://{host}:{port}"
+host = os.getenv("ZMQ_CONNECT_SUB_CAMERA_HOST", "")
+port = int(os.getenv("ZMQ_CONNECT_SUB_CAMERA_PORT", "0"))
+ZMQ_SUB_ENDPOINT = f"tcp://{host}:{port}" if host and port else ""
 host = os.getenv("ZMQ_BIND_PUB_FRAME_META_HOST", "0.0.0.0")
 port = int(os.getenv("ZMQ_BIND_PUB_FRAME_META_PORT", "5562"))
 ZMQ_FRAME_META_PUB = f"tcp://{host}:{port}"
@@ -74,10 +74,10 @@ class HostRTP:
 
         # ZMQ
         self.context = zmq.Context()
-        self.sub_socket = self.context.socket(zmq.SUB)
-        self.sub_socket.connect(ZMQ_SUB_ENDPOINT)
-        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "")
-        self.sub_socket.RCVTIMEO = 200  # ms
+        self.sub_socket = None
+        self._sub_lock = threading.Lock()
+        if ZMQ_SUB_ENDPOINT:
+            self.set_frame_endpoint(ZMQ_SUB_ENDPOINT)
 
 
         # RTP usage publisher (dedicated channel)
@@ -270,10 +270,30 @@ class HostRTP:
                 pass
             self.frame_queue.put_nowait(frame)
 
+    def set_frame_endpoint(self, endpoint) -> None:
+        if not endpoint:
+            return
+        with self._sub_lock:
+            if self.sub_socket is not None:
+                try:
+                    self.sub_socket.close()
+                except Exception:
+                    pass
+            self.sub_socket = self.context.socket(zmq.SUB)
+            self.sub_socket.connect(endpoint)
+            self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "")
+            self.sub_socket.RCVTIMEO = 200  # ms
+        self.log.info("[RTP] ZMQ SUB connected (frame): %s", endpoint)
+
     def zmq_sub_loop(self):
         while not self.stop_event.is_set():
+            with self._sub_lock:
+                sock = self.sub_socket
+            if sock is None:
+                time.sleep(0.1)
+                continue
             try:
-                msg = self.sub_socket.recv_json()
+                msg = sock.recv_json()
             except zmq.Again:
                 continue
 
