@@ -1,6 +1,7 @@
 
 networks:
   client_internal:
+    name: vision-clients  
     driver: bridge
     ipam:
       config:

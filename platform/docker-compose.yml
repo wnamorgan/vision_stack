@@ -1,5 +1,6 @@
 networks:
   vision:
+    name: vision-platform
     driver: bridge
     ipam:
       config:

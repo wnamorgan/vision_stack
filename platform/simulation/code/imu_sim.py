@@ -4,6 +4,7 @@ import time
 import logging
 
 import zmq
+from code.util.gw_register import start_gateway_registration
 
 
 def _env_float(name, default):
@@ -29,6 +30,10 @@ def imu_loop(stop_event):
     pub.bind(f"tcp://{host}:{port}")
     log.info("IMU ZMQ PUB bound: tcp://%s:%s", host, port)
     log.info("SIM_IMU_HZ=%s SIM_IMU_TEMP_C=%s", hz, temp_c)
+
+    endpoint = f"tcp://{os.getenv('GW_REGISTER_SUB_HOST','simulation')}:{os.getenv('GW_REGISTER_SUB_PORT', str(port))}"
+    stream = os.getenv("GW_REGISTER_STREAM_IMU", "").strip()
+    start_gateway_registration(endpoint=endpoint, logger=log, stream=stream)
 
     period = 1.0 / max(1.0, hz)
     counter = 0

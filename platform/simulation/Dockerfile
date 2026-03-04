@@ -9,5 +9,5 @@ COPY . /app
 
 ENV PYTHONUNBUFFERED=1
 
-#CMD ["python3", "app/run_sim.py"]
-CMD ["bash", "-lc", "sleep infinity"]
+CMD ["python3", "app/run_sim.py"]
+#CMD ["bash", "-lc", "sleep infinity"]
