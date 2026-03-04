@@ -93,3 +93,5 @@ def run():
                 "type": "RTP_SET_PARAMS",
                 "value": intent.get("value", {}),
             })
+        else:
+            pub.send_json(intent)
